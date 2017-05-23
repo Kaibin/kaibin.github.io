@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Kaibin的技术笔记</title><link href="/" rel="alternate"></link><link href="/feeds/javascript.atom.xml" rel="self"></link><id>/</id><updated>2014-01-12T00:00:00+08:00</updated><entry><title>JavaScript中的prototype和__proto__属性</title><link href="/posts/javaScript_prototype.html" rel="alternate"></link><updated>2014-01-12T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-01-12:posts/javaScript_prototype.html</id><summary type="html">&lt;p&gt;在传统的面向对象的语言（C++/Java/C#等）中，都包含类的继承机制，因此类自然是作为一等公民存在。JavaScript虽然也是一种面向对象的语言，但却没有引入“类”（class）的概念，自然也就没有类继承机制，JavaScript使用的是一种叫做原型链（prototype chain）的模型来代替类继承机制，并让函数充当了类的构造函数的作用，函数可以做到像简单值一样赋值、传参、返回，函数在JavaScript自然一跃成为一等公民。关于&lt;a href="http://www.ruanyifeng.com/blog/2011/06/designing_ideas_of_inheritance_mechanism_in_javascript.html"&gt;Javascript继承机制的设计思想&lt;/a&gt;，可以详看阮一峰博客的这篇文章。&lt;/p&gt;
+&lt;p&gt;任何函数，只要通过new操作符调用，那么该函数就称为构造函数，当调用构造函数创建一个新的实例对象后，该实例的内部将包含一个__proto__属性，用于指向构造函数的原型对象。&lt;/p&gt;
+&lt;p&gt;JavaScript中的每一个函数，都有一个prototype属性，它用于指向一个对象，该对象用来记录一个方法和属性的集合，这个对象就是通过调用构造函数而创建的实例对象的原型对象。&lt;/p&gt;
+&lt;p&gt;上面两句话分别就是对__proto__和prototype属性的定义了，具体可以参见下面这张&lt;a href="http://dmitrysoshnikov.com/ecmascript/javascript-the-core/"&gt;图&lt;/a&gt;：
+&lt;img alt="prototype" src="/images/prototype.png" /&gt;&lt;/p&gt;
+&lt;p&gt;图中Foo是一个JavaScript函数，而a和b则是由new Foo()这个构造函数创建的。&lt;/p&gt;
+&lt;p&gt;从图中我们可以看到，当我们用 new 关键字创建一个新的实例时，新对象的 &lt;strong&gt;proto&lt;/strong&gt; 将会被赋值为InstanceClass.prototype。也就是说，有这样一个关系：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;Instance&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;__proto__&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;InstanceClass&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;prototype&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;同时，由于在JavaScript中，每个函数都是一个Function类型的实例(instance)，因此Foo的__proto__属性自然就是指向
+Function.prototype了。&lt;/p&gt;</summary><category term="JavaScript"></category></entry></feed>

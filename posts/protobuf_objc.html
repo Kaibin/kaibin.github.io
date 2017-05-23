@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>protobuf for objectivec</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">protobuf for objectivec</h1>
+      <p class="meta"><time datetime="2017-05-23T00:00:00" pubdate>2017-05-23</time></p>
+</header>
+
+  <div class="entry-content"><p>Protocol Buffers
+是一种轻便高效的结构化数据存储格式，可以用于结构化数据串行化，可用于通讯协议、数据存储等领域的语言无关、平台无关、可扩展的序列化结构数据格式。</p>
+<p>下面列出iOS中使用protobuf的步骤：</p>
+<ul>
+<li>下载安装protobuf库：git clone https://github.com/google/protobuf </li>
+<br>
+<li>生成protoc编译器，运行： protobuf/objectivec/DevTools/full_mac_build.sh，会在src目录下生成protoc二进制的可执行文件，这就是protoc编译器，用于将.proto文件生成objc代码</li>
+<br>
+<li>接下来可以将protobuf/objectivec目录下的.h和.m源文件连同ProtocolBuffers_iOS.xcodeproj拷贝到我们的工程目录下，这里我们放在了framework的目录下，并将ProtocolBuffers_iOS.xcodeproj拖拽到Xcode目录中，最后将framework目录添加到Xcode的Header Search Paths里面。</li>
+<br>
+<li>新建一个叫person.proto的Message文件，放在Xcode的protobuf/src目录下</li>
+<br>
+<li>为person.proto文件生成objectivec源文件，这里我写了一个叫make.sh的脚本，会在protobuf/target目录下生成objectivec目标文件
+<pre><code>
+#!/bin/bash
+SRC_DIR=./src
+DST_DIR=./target
+PROTOC_DIR=~/Documents/DevTools/protobuf/src #protoc编译器存放的目录
+$PROTOC_DIR/protoc --proto_path=$SRC_DIR --objc_out=$DST_DIR $SRC_DIR/person.proto
+</code></pre>
+</li>
+
+<li>最后就可以#import "Person.pbobjc.h"头文件，对生成的Person对象进行Serialization和Unserialization操作</li>
+</ul>
+
+<p>Github demo: <a href="">https://github.com/Kaibin/protobuf_objc</a></p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">Kaibin</span>
+  </span>
+<time datetime="2017-05-23T00:00:00" pubdate>2017-05-23</time>  <span class="categories">
+    <a class="category" href="../tag/ios.html">iOS</a>
+  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/protobuf_objc.html">protobuf for objectivec</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </li>
+      <li class="post">
+          <a href="../posts/java_interrupt.html">Java中的线程中断机制</a>
+      </li>
+      <li class="post">
+          <a href="../posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

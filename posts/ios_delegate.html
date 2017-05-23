@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>iOS中的Delegate模式</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">iOS中的Delegate模式</h1>
+      <p class="meta"><time datetime="2014-03-01T00:00:00" pubdate>2014-03-01</time></p>
+</header>
+
+  <div class="entry-content"><p>Delegate模式贯穿于整个iOS SDK，是运用Objective-C的运行时来实现的一种设计模式，它是装饰器模式的一种实现。</p>
+<p>熟悉设计模式的都知道，装饰器是在运行时动态地给一个对象添加一些额外的行为和职责，因此，iOS中的Delegate就是利用Objective-C的Runtime来动态的判断某个对象是否存在，是否实现了某些selector，如果实现了，则通过调用该对象的这些选择器来帮助自己实现某些功能，这里的用来帮助自己实现某些功能的对象就叫做delegate（委托）。</p>
+<p>所以说其实delegate模式，就是大家约定俗成，当把自己内部一部分实现暴露给另外一个类去做，就个实际做事的类就作为delegate。</p>
+<p>举个最常用的例子，当我们使用UITableView来显示一个列表的时候，我们需要知道这个列表要显示多少行，以及每一行需要显示什么内容。Apple提供的UITableView是一个View类的子类，它的职责就是绘制和显示表格，根据面向对象的单一职责原则，UITableView类就应该独立于它要显示的数据。因此，UITableView就需要一个UITableViewDataSource委托对象，当UITableView要绘制表格的行数时，它就发送消息给这个委托，委托对象就返回一个行数值；当UITableView要绘制每个单元格的内容时，它又发送消息给委托，委托对象返回单元格对象给UITableView去显示内容，下面这张图就解释了UITableView的绘制过程：</p>
+<p><img alt="UITableView delegate" src="/images/delegate.png" /></p>
+<p>那么，Apple是如何设计这种Delegate模式的呢？</p>
+<p>通过查看UITableView的头文件，我们可以看到这个定义：</p>
+<div class="highlight"><pre><span class="k">@protocol</span> <span class="nc">UITableViewDataSource</span><span class="o">&lt;</span><span class="n">NSObject</span><span class="o">&gt;</span>
+
+<span class="err">@</span><span class="n">required</span>
+
+<span class="o">-</span> <span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="n">tableView</span><span class="o">:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="n">tableView</span> <span class="n">numberOfRowsInSection</span><span class="o">:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="n">section</span><span class="p">;</span>
+
+<span class="k">-</span> <span class="p">(</span><span class="n">UITableViewCell</span> <span class="o">*</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">tableView</span> <span class="nf">cellForRowAtIndexPath:</span><span class="p">(</span><span class="n">NSIndexPath</span> <span class="o">*</span><span class="p">)</span><span class="nv">indexPath</span><span class="p">;</span>
+
+<span class="k">@end</span>
+</pre></div>
+
+
+<p>也就是说，可以通过protocol来实现delegate。protocol是一种语法，与java里interface的概念类似，定义了一组方法的集合，而这些方法是需要被实现的，当某个类conform to protocol时，它就必须实现这组函数。</p>
+<p>Apple设计UITableView的时候，其内部就持有了一个实现了UITableViewDataSource协议的id类型的弱引用:</p>
+<div class="highlight"><pre><span class="p">@</span><span class="nx">property</span> <span class="p">(</span><span class="nx">assign</span><span class="p">)</span> <span class="nb">id</span><span class="o">&lt;</span><span class="nx">UITableViewDataSource</span><span class="o">&gt;</span> <span class="nx">dataSource</span><span class="p">;</span>
+</pre></div>
+
+
+<p>当需要执行绘制任务时，就给这个UITableViewDataSource发送消息。当我们让某个类实现这个UITableViewDataSource协议，实现其中的这两个required方法，并将其传给UITableView中的dataSource，那么它就是UITableView的数据也委托对象了，这就达到了UITableView的数据模型和显示的分离，并且，可以将这个delegate赋给其它的UITableView对象，也就实现了代码的重用功能。</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">Kaibin</span>
+  </span>
+<time datetime="2014-03-01T00:00:00" pubdate>2014-03-01</time>  <span class="categories">
+    <a class="category" href="../tag/ios.html">iOS</a>
+  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/protobuf_objc.html">protobuf for objectivec</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </li>
+      <li class="post">
+          <a href="../posts/java_interrupt.html">Java中的线程中断机制</a>
+      </li>
+      <li class="post">
+          <a href="../posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

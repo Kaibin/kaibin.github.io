@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kaibin的技术笔记 - Python</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </h1>
+      <p class="meta"><time datetime="2017-05-10T00:00:00" pubdate>2017-05-10</time></p>
+</header>
+
+  <div class="entry-content"><p>&nbsp;&nbsp;近期在做短视频相关的开发，需要实现一个可以支持断点续传的边下载边播放的视频播放器，整个过程涉及到视频文件的下载管理和播放，这篇文章就当做个总结吧。</p>
+<p>&nbsp;&nbsp;首先是要确定作为播放器输入的视频文件格式， 由于MPEG4编码格式已经在各种移动设备广泛应用， 各安卓和iOS平台都支持MPEG4格式，因此播放器选择MPEG4作为视频文件格式。MPEG4默认会将 moov atom放置于文件尾部，这个moov atom 是视频数据的索引，播放器需要先读取这个索引数据才能播放视频，因此如果要支持边下载边播放，那么就要将moov atom放置在视频数据前面。</p>
+<p>&nbsp;&nbsp;关于moov atom元数据具体可查阅这篇文章：<a href="">http://www.adobe.com/devnet/video/articles/mp4_movie_atom.html</a></p>
+<p>&nbsp;&nbsp;在iOS平台，如果视频文件是苹果的mov格式，可以通过AVAssetExportSession在mov转MPEG4时设置shouldOptimizeForNetworkUse = YES将 moov atom 移动到文件首部，使视频可以支持边下边播。</p>
+<p>&nbsp;&nbsp;视频播放器选择AVFoundation库中的AVPlayer，简单介绍播放过程需要用到的几个类：
+<ul>
+<li>AVURLAsset：AVAsset的子类，可以根据一个URL路径创建一个包含媒体信息的AVURLAsset对象。这个URL可以是本地视频路径也可以是网络视频路径。</li>
+<li>AVPlayerItem：一个媒体资源管理对象，管理视频的一些基本信息和状态，一个AVPlayerItem对应着一个视频资源。</li>
+<li>AVPlayerLayer：AVPlayer本身并不能显示视频，因此AVPlayer要显示视频必须创建一个播放器层AVPlayerLayer用于展示 ...</li></ul></p></div>
+  <footer>
+    <a rel="full-article" href="../posts/ios_online_video_player.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/python_decorator.html">Python之装饰器</a>
+      </h1>
+      <p class="meta"><time datetime="2014-02-06T00:00:00" pubdate>2014-02-06</time></p>
+</header>
+
+  <div class="entry-content"><p>装饰器（Decorator）是一种设计模式，其作用是为已经存在的对象添加额外的功能，如日志、事务处理等。
+python作为一种优雅的语言，学会使用其装饰器是一种魔法，装饰器其实也是一个函数，以被装饰的函数作为参数，返回一个修改后的函数对象，并将其赋予原来函数的标示符。</p>
+<h2>1. 无参数装饰器</h2>
+<p>先看下面的例子：</p>
+<div class="highlight"><pre> <span class="n">def</span> <span class="n">foo</span><span class="p">()</span><span class="o">:</span>
+      <span class="n">print</span> <span class="err">&#39;</span><span class="n">in</span> <span class="n">foo</span><span class="p">()</span><span class="err">&#39;</span>
+</pre></div>
+
+
+<p>foo()是一个普通的函数，再定义一个装饰器函数对foo函数进行包装,对foo()函数进行日志打印。</p>
+<div class="highlight"><pre> <span class="n">def</span> <span class="n">dec</span><span class="p">(</span><span class="n">func</span><span class="p">)</span><span class="o">:</span>
+      <span class="n">def</span> <span class="n">wrapper</span><span class="p">()</span><span class="o">:</span>     <span class="err">#定义一个内嵌的包装函数，给传入的函数加上日志功能</span>
+           <span class="n">print</span> <span class="err">&#39;</span><span class="n">before</span> <span class="n">foo</span><span class="p">()</span><span class="err">&#39;</span>
+           <span class="n">func</span><span class="p">()</span>
+           <span class="n">print</span> <span class="err">&#39;</span><span class="n">after</span> <span class="n">foo</span><span class="p">()</span><span class="err">&#39;</span>
+      <span class="k">return</span> <span class="n">wrapper</span>     <span class="err">#返回内嵌的函数名</span>
+</pre></div>
+
+
+<p>以上dec函数就是一个装饰器，它的参数就是被装饰的函数，并返回一个函数对象。
+这样，当进行以下操作时：</p>
+<div class="highlight"><pre> <span class="n">foo</span> <span class="o">=</span> <span class="n">dec</span><span class="p">(</span><span class="n">foo ...</span></pre></div></div>
+  <footer>
+    <a rel="full-article" href="../posts/python_decorator.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/deploy_flask_web.html">使用Nginx和uWSGI部署Flask应用</a>
+      </h1>
+      <p class="meta"><time datetime="2014-01-06T00:00:00" pubdate>2014-01-06</time></p>
+</header>
+
+  <div class="entry-content"><p>用python写的web应用部署到服务器环境，不像php或者java那样简单直接把php文件或java文件扔进apache或tomcat的web目录就可以。这里简单介绍一下在CentOS 5.4 下配置nginx和uWSGI服务器来部署Flask web应用程序。</p>
+<h2>1. 安装ngnix</h2>
+<p>nginx是高性能的HTTP和反向代理服务器，CentOS没有默认的Nginx软件包，需要先导入源：</p>
+<div class="highlight"><pre><span class="n">rpm</span> <span class="o">-</span><span class="n">Uvh</span> <span class="n">http</span><span class="o">:</span><span class="c1">//centos.alt.ru/repository/centos/5/i386/centalt-release-5-3.noarch.rpm</span>
+</pre></div>
+
+
+<p>接下来yum安装nginx,添加到启动项并启动nginx(监听80端口)</p>
+<div class="highlight"><pre><span class="n">yum</span> <span class="n">install</span> <span class="n">nginx</span>
+<span class="n">chkconfig</span> <span class="o">--</span><span class="n">levels</span> <span class="mi">235</span> <span class="n">nginx</span> <span class="n">on</span>
+<span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">init</span><span class="p">.</span><span class="n">d</span><span class="o">/</span><span class="n">nginx</span> <span class="n">start</span>
+</pre></div>
+
+
+<p>默认nginx配置文件: </p>
+<div class="highlight"><pre><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">nginx</span><span class="p">.</span><span class="n">conf</span>
+</pre></div>
+
+
+<p>默认nginx的虚拟主机配置文件: </p>
+<div class="highlight"><pre><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">conf ...</span></pre></div></div>
+  <footer>
+    <a rel="full-article" href="../posts/deploy_flask_web.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+<div class="pagination">
+
+  <br />
+</div></div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </li>
+      <li class="post">
+          <a href="../posts/python_decorator.html">Python之装饰器</a>
+      </li>
+      <li class="post">
+          <a href="../posts/deploy_flask_web.html">使用Nginx和uWSGI部署Flask应用</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

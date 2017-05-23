@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kaibin的技术笔记</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="./favicon.png" rel="icon">
+  <link href="./theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="./theme/js/modernizr-2.0.js"></script>
+  <script src="./theme/js/ender.js"></script>
+  <script src="./theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="./">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/protobuf_objc.html">protobuf for objectivec</a>
+      </h1>
+      <p class="meta"><time datetime="2017-05-23T00:00:00" pubdate>2017-05-23</time></p>
+</header>
+
+  <div class="entry-content"><p>Protocol Buffers
+是一种轻便高效的结构化数据存储格式，可以用于结构化数据串行化，可用于通讯协议、数据存储等领域的语言无关、平台无关、可扩展的序列化结构数据格式。</p>
+<p>下面列出iOS中使用protobuf的步骤：</p>
+<ul>
+<li>下载安装protobuf库：git clone https://github.com/google/protobuf </li>
+<br>
+<li>生成protoc编译器，运行： protobuf/objectivec/DevTools/full_mac_build.sh，会在src目录下生成protoc二进制的可执行文件，这就是protoc编译器，用于将.proto文件生成objc代码</li>
+<br>
+<li>接下来可以将protobuf/objectivec目录下的.h和.m源文件连同ProtocolBuffers_iOS.xcodeproj拷贝到我们的工程目录下，这里我们放在了framework的目录下，并将ProtocolBuffers_iOS.xcodeproj拖拽到Xcode目录中，最后将framework目录添加到Xcode的Header Search Paths里面。</li>
+<br>
+<li>新建一个叫person.proto的Message文件，放在Xcode的protobuf/src目录下</li>
+<br>
+<li>为person.proto文件生成objectivec源文件，这里我写了一个叫make.sh的脚本，会在protobuf/target目录下生成objectivec目标文件
+<pre><code>
+#!/bin ...</code></pre></li></ul></div>
+  <footer>
+    <a rel="full-article" href="./posts/protobuf_objc.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </h1>
+      <p class="meta"><time datetime="2017-05-10T00:00:00" pubdate>2017-05-10</time></p>
+</header>
+
+  <div class="entry-content"><p>&nbsp;&nbsp;近期在做短视频相关的开发，需要实现一个可以支持断点续传的边下载边播放的视频播放器，整个过程涉及到视频文件的下载管理和播放，这篇文章就当做个总结吧。</p>
+<p>&nbsp;&nbsp;首先是要确定作为播放器输入的视频文件格式， 由于MPEG4编码格式已经在各种移动设备广泛应用， 各安卓和iOS平台都支持MPEG4格式，因此播放器选择MPEG4作为视频文件格式。MPEG4默认会将 moov atom放置于文件尾部，这个moov atom 是视频数据的索引，播放器需要先读取这个索引数据才能播放视频，因此如果要支持边下载边播放，那么就要将moov atom放置在视频数据前面。</p>
+<p>&nbsp;&nbsp;关于moov atom元数据具体可查阅这篇文章：<a href="">http://www.adobe.com/devnet/video/articles/mp4_movie_atom.html</a></p>
+<p>&nbsp;&nbsp;在iOS平台，如果视频文件是苹果的mov格式，可以通过AVAssetExportSession在mov转MPEG4时设置shouldOptimizeForNetworkUse = YES将 moov atom 移动到文件首部，使视频可以支持边下边播。</p>
+<p>&nbsp;&nbsp;视频播放器选择AVFoundation库中的AVPlayer，简单介绍播放过程需要用到的几个类：
+<ul>
+<li>AVURLAsset：AVAsset的子类，可以根据一个URL路径创建一个包含媒体信息的AVURLAsset对象。这个URL可以是本地视频路径也可以是网络视频路径。</li>
+<li>AVPlayerItem：一个媒体资源管理对象，管理视频的一些基本信息和状态，一个AVPlayerItem对应着一个视频资源。</li>
+<li>AVPlayerLayer：AVPlayer本身并不能显示视频，因此AVPlayer要显示视频必须创建一个播放器层AVPlayerLayer用于展示 ...</li></ul></p></div>
+  <footer>
+    <a rel="full-article" href="./posts/ios_online_video_player.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </h1>
+      <p class="meta"><time datetime="2014-03-01T00:00:00" pubdate>2014-03-01</time></p>
+</header>
+
+  <div class="entry-content"><p>Delegate模式贯穿于整个iOS SDK，是运用Objective-C的运行时来实现的一种设计模式，它是装饰器模式的一种实现。</p>
+<p>熟悉设计模式的都知道，装饰器是在运行时动态地给一个对象添加一些额外的行为和职责，因此，iOS中的Delegate就是利用Objective-C的Runtime来动态的判断某个对象是否存在，是否实现了某些selector，如果实现了，则通过调用该对象的这些选择器来帮助自己实现某些功能，这里的用来帮助自己实现某些功能的对象就叫做delegate（委托）。</p>
+<p>所以说其实delegate模式，就是大家约定俗成，当把自己内部一部分实现暴露给另外一个类去做，就个实际做事的类就作为delegate。</p>
+<p>举个最常用的例子，当我们使用UITableView来显示一个列表的时候，我们需要知道这个列表要显示多少行，以及每一行需要显示什么内容。Apple提供的UITableView是一个View类的子类，它的职责就是绘制和显示表格，根据面向对象的单一职责原则，UITableView类就应该独立于它要显示的数据。因此，UITableView就需要一个UITableViewDataSource委托对象，当UITableView要绘制表格的行数时，它就发送消息给这个委托，委托对象就返回一个行数值；当UITableView要绘制每个单元格的内容时，它又发送消息给委托，委托对象返回单元格对象给UITableView去显示内容，下面这张图就解释了UITableView的绘制过程：</p>
+<p><img alt="UITableView delegate" src="/images/delegate.png" /></p>
+<p>那么，Apple是如何设计这种Delegate模式的呢？</p>
+<p>通过查看UITableView的头文件，我们可以看到这个定义：</p>
+<div class="highlight"><pre><span class="k">@protocol</span> <span class="nc">UITableViewDataSource</span><span class="o">&lt;</span><span class="n">NSObject</span><span class="o">&gt;</span>
+
+<span class="err">@</span><span class="n">required</span>
+
+<span class="o">-</span> <span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="n">tableView</span><span class="o">:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="n">tableView</span> <span class="n">numberOfRowsInSection</span><span class="o">:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="n">section</span><span class="p">;</span>
+
+<span class="k">-</span> <span class="p">(</span><span class="n">UITableViewCell ...</span></pre></div></div>
+  <footer>
+    <a rel="full-article" href="./posts/ios_delegate.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/java_interrupt.html">Java中的线程中断机制</a>
+      </h1>
+      <p class="meta"><time datetime="2014-02-20T00:00:00" pubdate>2014-02-20</time></p>
+</header>
+
+  <div class="entry-content"><p>&emsp;&emsp;Java中的许多方法，如 Thread.sleep(), Object.join() 和 Object.wait()等，都可以抛出InterruptedException，这是一个受检异常（checked exception），因此必须在代码中被捕获。通常，当一个方法抛出 InterruptedException，说明这是一个阻塞（blocking）方法，阻塞方法可能因为等不到所等的事件而无法终止，因此令阻塞方法可取消就非常有用。</p>
+<p>&emsp;&emsp;Java的<strong>线程中断机制</strong>是一种<strong>协作机制</strong>，能够使一个线程通知另一个线程，告诉目标线程在合适的情况下终止当前工作。</p>
+<h2>线程中断</h2>
+<p>&emsp;&emsp;每个Java线程都有一个用于表示线程中断状态（interrupted status）的标志，其初始值为false。
+当在一个线程中，调用了另一个目标线程的 <strong>interrupt( )</strong>方法时，会发生以下两种情况之一：</p>
+<ol>
+<li>
+<p>如果目标线程正在执行阻塞方法，例如 Thread.sleep( ), Thread.join( ) 或 Object.wait( )，那么它将取消阻塞并抛出InterruptedException ...</p></li></ol></div>
+  <footer>
+    <a rel="full-article" href="./posts/java_interrupt.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </h1>
+      <p class="meta"><time datetime="2014-02-15T00:00:00" pubdate>2014-02-15</time></p>
+</header>
+
+  <div class="entry-content"><p>&emsp;&emsp;话说二月十四，恰逢19年一遇的元宵情人节同一天，博主早早下班回家，吃完饭坐在沙发上刷豆瓣，看到友邻发一条豆瓣说，点进去一看，好家伙，原来是个福利贴，是某程序员写爬虫收集豆瓣上面的姑娘晒出来的图片的<a href="http://dbmeizi.com/">网站</a>，图片很真实，豆瓣妹纸果然很给力。网站对手机的适配还不错，于是博主又尝试到AppStore搜一下是否有对应的app，可惜，没有! 于是，博主就闪出一个念头，长夜漫漫，不如就给它做个iOS客户端吧。</p>
+<p>&emsp;&emsp;好家伙，说干就干！拿出Macbook，打开Xcode，且慢，难道从零开始写？</p>
+<p>&emsp;&emsp;感谢上帝，这是一个开源的时代，我们站在巨人的肩膀上，写程序就像是在搭积木，别人已经做好了积木，觉得好用我们拿来拼搭就是了。目前互联网最有名的开源社区当属Github莫属了，本博客其实也是借助Github Pages再加上Pelican静态网站工具搭建的。那么，搭建一个显示图片的iOS客户端需要哪些模块呢？用过“花瓣”这个应用的知道，其图片展示方式是瀑布流的网格方式，支持下拉刷新上拉加载更多，使用抽屉式的导航方式，异步加载图片等等。</p>
+<p>&emsp;&emsp;知道我们需要用到什么东西了，那么我们自然可以去Github上找其开源实现啦，典型的拿来主义啊！</p>
+<p>&emsp;&emsp;首先，我们得确定app所要支持的iOS最低版本，据 ...</p></div>
+  <footer>
+    <a rel="full-article" href="./posts/waterflow_demo.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/java_synchronize.html">Java中的volatile和synchronized关键字</a>
+      </h1>
+      <p class="meta"><time datetime="2014-02-12T00:00:00" pubdate>2014-02-12</time></p>
+</header>
+
+  <div class="entry-content"><p>Java线程同步包括线程之间的交互通信和互斥，线程之间的通信由Java内存模型（JMM）控制，JMM决定一个线程对共享变量的写入何时对另一个线程可见。Java内存模型的抽象示意图如下：
+<img alt="JMM" src="../images/JMM.png" />
+这张图告诉我们，Java线程运行的时候，线程本地内存和主内存之间有一个变量同步的过程，这就导致线程中变量的值何时同步回主内存是不可预期的。
+从java源代码到最终实际执行的指令序列，会分别经历下面三种重排序：
+<img alt="ReSort" src="../images/ReSort.png" /></p>
+<p>1属于编译器重排序，2和3属于处理器重排序。可见编译器生成的指令顺序和真正在CPU执行的顺序可能是不一致的。这些重排序都可能会导致多线程程序出现内存可见性问题。
+对于编译器优化的重排序，可以通过在Java语言中为变量加上“volatile”强制告诉编译器这个变量一定要从内存获得，这时编译器即不会做此类优化。</p>
+<p>Java内存模型提供了两个关键词“synchronized”和“volatile”，让Java保证某些约束：</p>
+<p>volatile: 保证所有线程读写的都是主内存的变量并且不缓存它，只保证可见性，不保证原子性。关于Volatile的实现原理，可点击<a href="http://www.infoq.com/cn/articles/ftf-java-volatile">这里</a></p>
+<p>synchronized: Java提供的用来支持原子性的内置锁机制，保证在同一时刻，只有一个线程可以执行某个方法或代码块。Java中的每个对象都有一个monitor(锁标记)，当线程拥有这个锁标记时才能访问这个资源。synchronized作用于方法时，锁住的是对象的实例(this)，当作用于静态方法时，锁住的是Class实例，用sychronized修饰的方法或者语句块在代码执行完之后锁自动释放。</p>
+<p>把代码块声明为 synchronized，该代码块就就具有原子性（atomicity和可见性 ...</p></div>
+  <footer>
+    <a rel="full-article" href="./posts/java_synchronize.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/python_decorator.html">Python之装饰器</a>
+      </h1>
+      <p class="meta"><time datetime="2014-02-06T00:00:00" pubdate>2014-02-06</time></p>
+</header>
+
+  <div class="entry-content"><p>装饰器（Decorator）是一种设计模式，其作用是为已经存在的对象添加额外的功能，如日志、事务处理等。
+python作为一种优雅的语言，学会使用其装饰器是一种魔法，装饰器其实也是一个函数，以被装饰的函数作为参数，返回一个修改后的函数对象，并将其赋予原来函数的标示符。</p>
+<h2>1. 无参数装饰器</h2>
+<p>先看下面的例子：</p>
+<div class="highlight"><pre> <span class="n">def</span> <span class="n">foo</span><span class="p">()</span><span class="o">:</span>
+      <span class="n">print</span> <span class="err">&#39;</span><span class="n">in</span> <span class="n">foo</span><span class="p">()</span><span class="err">&#39;</span>
+</pre></div>
+
+
+<p>foo()是一个普通的函数，再定义一个装饰器函数对foo函数进行包装,对foo()函数进行日志打印。</p>
+<div class="highlight"><pre> <span class="n">def</span> <span class="n">dec</span><span class="p">(</span><span class="n">func</span><span class="p">)</span><span class="o">:</span>
+      <span class="n">def</span> <span class="n">wrapper</span><span class="p">()</span><span class="o">:</span>     <span class="err">#定义一个内嵌的包装函数，给传入的函数加上日志功能</span>
+           <span class="n">print</span> <span class="err">&#39;</span><span class="n">before</span> <span class="n">foo</span><span class="p">()</span><span class="err">&#39;</span>
+           <span class="n">func</span><span class="p">()</span>
+           <span class="n">print</span> <span class="err">&#39;</span><span class="n">after</span> <span class="n">foo</span><span class="p">()</span><span class="err">&#39;</span>
+      <span class="k">return</span> <span class="n">wrapper</span>     <span class="err">#返回内嵌的函数名</span>
+</pre></div>
+
+
+<p>以上dec函数就是一个装饰器，它的参数就是被装饰的函数，并返回一个函数对象。
+这样，当进行以下操作时：</p>
+<div class="highlight"><pre> <span class="n">foo</span> <span class="o">=</span> <span class="n">dec</span><span class="p">(</span><span class="n">foo ...</span></pre></div></div>
+  <footer>
+    <a rel="full-article" href="./posts/python_decorator.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/javaScript_prototype.html">JavaScript中的prototype和__proto__属性</a>
+      </h1>
+      <p class="meta"><time datetime="2014-01-12T00:00:00" pubdate>2014-01-12</time></p>
+</header>
+
+  <div class="entry-content"><p>在传统的面向对象的语言（C++/Java/C#等）中，都包含类的继承机制，因此类自然是作为一等公民存在。JavaScript虽然也是一种面向对象的语言，但却没有引入“类”（class）的概念，自然也就没有类继承机制，JavaScript使用的是一种叫做原型链（prototype chain）的模型来代替类继承机制，并让函数充当了类的构造函数的作用，函数可以做到像简单值一样赋值、传参、返回，函数在JavaScript自然一跃成为一等公民。关于<a href="http://www.ruanyifeng.com/blog/2011/06/designing_ideas_of_inheritance_mechanism_in_javascript.html">Javascript继承机制的设计思想</a>，可以详看阮一峰博客的这篇文章。</p>
+<p>任何函数，只要通过new操作符调用，那么该函数就称为构造函数，当调用构造函数创建一个新的实例对象后，该实例的内部将包含一个__proto__属性，用于指向构造函数的原型对象。</p>
+<p>JavaScript中的每一个函数，都有一个prototype属性，它用于指向一个对象，该对象用来记录一个方法和属性的集合，这个对象就是通过调用构造函数而创建的实例对象的原型对象。</p>
+<p>上面两句话分别就是对__proto__和prototype属性的定义了，具体可以参见下面这张<a href="http://dmitrysoshnikov.com/ecmascript/javascript-the-core/">图</a>：
+<img alt="prototype" src="/images/prototype.png" /></p>
+<p>图中Foo是一个JavaScript函数，而a和b则是由new Foo()这个构造函数创建的。</p>
+<p>从图中我们可以看到，当我们用 new 关键字创建一个新的实例时，新对象的 <strong>proto ...</strong></p></div>
+  <footer>
+    <a rel="full-article" href="./posts/javaScript_prototype.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/deploy_flask_web.html">使用Nginx和uWSGI部署Flask应用</a>
+      </h1>
+      <p class="meta"><time datetime="2014-01-06T00:00:00" pubdate>2014-01-06</time></p>
+</header>
+
+  <div class="entry-content"><p>用python写的web应用部署到服务器环境，不像php或者java那样简单直接把php文件或java文件扔进apache或tomcat的web目录就可以。这里简单介绍一下在CentOS 5.4 下配置nginx和uWSGI服务器来部署Flask web应用程序。</p>
+<h2>1. 安装ngnix</h2>
+<p>nginx是高性能的HTTP和反向代理服务器，CentOS没有默认的Nginx软件包，需要先导入源：</p>
+<div class="highlight"><pre><span class="n">rpm</span> <span class="o">-</span><span class="n">Uvh</span> <span class="n">http</span><span class="o">:</span><span class="c1">//centos.alt.ru/repository/centos/5/i386/centalt-release-5-3.noarch.rpm</span>
+</pre></div>
+
+
+<p>接下来yum安装nginx,添加到启动项并启动nginx(监听80端口)</p>
+<div class="highlight"><pre><span class="n">yum</span> <span class="n">install</span> <span class="n">nginx</span>
+<span class="n">chkconfig</span> <span class="o">--</span><span class="n">levels</span> <span class="mi">235</span> <span class="n">nginx</span> <span class="n">on</span>
+<span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">init</span><span class="p">.</span><span class="n">d</span><span class="o">/</span><span class="n">nginx</span> <span class="n">start</span>
+</pre></div>
+
+
+<p>默认nginx配置文件: </p>
+<div class="highlight"><pre><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">nginx</span><span class="p">.</span><span class="n">conf</span>
+</pre></div>
+
+
+<p>默认nginx的虚拟主机配置文件: </p>
+<div class="highlight"><pre><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">conf ...</span></pre></div></div>
+  <footer>
+    <a rel="full-article" href="./posts/deploy_flask_web.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="./posts/maven_dependency.html">Maven的依赖管理机制</a>
+      </h1>
+      <p class="meta"><time datetime="2013-12-06T00:00:00" pubdate>2013-12-06</time></p>
+</header>
+
+  <div class="entry-content"><p><a href="http://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#System_Dependencies">依赖管理</a>是Maven的一项强大功能，在单模块的项目中使用依赖管理相当简单，但是大项目一般会分成几个子项目，每个子项目就会有自己的POM 文件，然后它们会有一个共同的父项目，这样在管理多模块的大项目时，弄清楚模块间的依赖管理机制，对维护整个项目稳定性就显得相当重要了。</p>
+<p>这里首先介绍一下Maven中坐标的概念，在POM中，groupId, artifactId, packaging, version 叫作 Maven 坐标，它能唯一的确定一个项目，因此我们可以用它来解决依赖关系。
+Maven的依赖管理机制包括以下三个方面：
+<ul>
+    <li>依赖传递</li>
+    <li>依赖管理</li>
+    <li>依赖范围</li>
+</ul></p>
+<h2>依赖传递</h2>
+<p>这是Maven2.0的一个新特性，指的是说依赖能够自动继承和传递，类似于yum和apt-get等linux的包管理机制，自动解析依赖关系。例如module A依赖module B的artifact b，而module B依赖于module C的artifact c，那么在build module A时，A的依赖中就会自动出现B和C。
+由于这种可传递的依赖，会导致两个问题：
+<ul>
+    <li>依赖树变得很庞大</li>例如A -&gt; B -&gt; C -&gt; D ...</ul></p></div>
+  <footer>
+    <a rel="full-article" href="./posts/maven_dependency.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+<div class="pagination">
+    <a class="prev" href="./index2.html">&larr; Older</a>
+
+  <br />
+</div></div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="./posts/protobuf_objc.html">protobuf for objectivec</a>
+      </li>
+      <li class="post">
+          <a href="./posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </li>
+      <li class="post">
+          <a href="./posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </li>
+      <li class="post">
+          <a href="./posts/java_interrupt.html">Java中的线程中断机制</a>
+      </li>
+      <li class="post">
+          <a href="./posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="./category/git.html">Git</a></li>
+        <li><a href="./category/ios.html">iOS</a></li>
+        <li><a href="./category/java.html">Java</a></li>
+        <li><a href="./category/javascript.html">JavaScript</a></li>
+        <li><a href="./category/mysql.html">MySQL</a></li>
+        <li><a href="./category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="./tag/git.html">Git</a>,    <a href="./tag/java.html">Java</a>,    <a href="./tag/python.html">Python</a>,    <a href="./tag/javascript.html">JavaScript</a>,    <a href="./tag/ios.html">iOS</a>,    <a href="./tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

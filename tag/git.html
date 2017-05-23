@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kaibin的技术笔记 - Git</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/git_study.html">Git学习笔记</a>
+      </h1>
+      <p class="meta"><time datetime="2013-08-02T00:00:00" pubdate>2013-08-02</time></p>
+</header>
+
+  <div class="entry-content"><p>Git本地仓库存在三个区域：工作区（working directory），缓存区（Git staging area或Git index），远端（HEAD）则是中心仓库的最新提交。</p>
+<p>Git staging area 和Git Index是同一个意思，可以理解为快照缓存区。缓存区是用来存放下一次要提交到仓库的信息的区域。</p>
+<p>HEAD指向最新提交，HEAD^指向HEAD之前的最近一次提交。HEAD~2指向HEAD最近的两个提交。</p>
+<p>git init       #进行初始化后git就会对该目录下的文件进行版本控制，接下来就可以利用'git remote add'命令来增加一个远程仓库</p>
+<p>git remote add origin git@github.com:username/project.git     #增加名称为origin的远程服务器，以后提交代码的时候只需要使用 origin别名即可</p>
+<p>git add        #将当前工作区的内容存放到缓存区。</p>
+<p>git commit ...</p></div>
+  <footer>
+    <a rel="full-article" href="../posts/git_study.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+<div class="pagination">
+
+  <br />
+</div></div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/git_study.html">Git学习笔记</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

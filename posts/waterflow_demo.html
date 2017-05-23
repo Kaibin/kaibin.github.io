@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>实现一个简单的图片瀑布流APP</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div>
+  <article class="hentry" role="article">
+<header>
+      <h1 class="entry-title">实现一个简单的图片瀑布流APP</h1>
+      <p class="meta"><time datetime="2014-02-15T00:00:00" pubdate>2014-02-15</time></p>
+</header>
+
+  <div class="entry-content"><p>&emsp;&emsp;话说二月十四，恰逢19年一遇的元宵情人节同一天，博主早早下班回家，吃完饭坐在沙发上刷豆瓣，看到友邻发一条豆瓣说，点进去一看，好家伙，原来是个福利贴，是某程序员写爬虫收集豆瓣上面的姑娘晒出来的图片的<a href="http://dbmeizi.com/">网站</a>，图片很真实，豆瓣妹纸果然很给力。网站对手机的适配还不错，于是博主又尝试到AppStore搜一下是否有对应的app，可惜，没有! 于是，博主就闪出一个念头，长夜漫漫，不如就给它做个iOS客户端吧。</p>
+<p>&emsp;&emsp;好家伙，说干就干！拿出Macbook，打开Xcode，且慢，难道从零开始写？</p>
+<p>&emsp;&emsp;感谢上帝，这是一个开源的时代，我们站在巨人的肩膀上，写程序就像是在搭积木，别人已经做好了积木，觉得好用我们拿来拼搭就是了。目前互联网最有名的开源社区当属Github莫属了，本博客其实也是借助Github Pages再加上Pelican静态网站工具搭建的。那么，搭建一个显示图片的iOS客户端需要哪些模块呢？用过“花瓣”这个应用的知道，其图片展示方式是瀑布流的网格方式，支持下拉刷新上拉加载更多，使用抽屉式的导航方式，异步加载图片等等。</p>
+<p>&emsp;&emsp;知道我们需要用到什么东西了，那么我们自然可以去Github上找其开源实现啦，典型的拿来主义啊！</p>
+<p>&emsp;&emsp;首先，我们得确定app所要支持的iOS最低版本，据<a href="http://david-smith.org/iosversionstats/">统计</a>，iPhone iOS6以上版本所占的比例已高达98%，因此这里选用iOS6 SDK，Xcode版本是最新的Xcode5，默认支持ARC，关于ARC的知识，可以点击<a href="http://onevcat.com/2012/06/arc-hand-by-hand/">这里</a>查看其使用。</p>
+<p>&emsp;&emsp;接下来就可以列出图片瀑布app要用到的Github开源实现了：</p>
+<p>&emsp;&emsp;* <a href="https://github.com/gresrun/GHSidebarNav">GHSidebarNav</a>: 实现抽屉式导航栏，支持ARC</p>
+<p>&emsp;&emsp;* <a href="https://github.com/aceisScope/WaterflowView">WaterflowView</a>: 使用iOS6新加入的强大的UICollectionView实现瀑布流</p>
+<p>&emsp;&emsp;* <a href="https://github.com/pokeb/asi-http-request/">ASIHTTPRequest</a>: 强大的HTTP请求第三方类库，已在WaterflowView中集成。缺点是不支持ARC，已停止更新，建议使用<a href="https://github.com/AFNetworking/AFNetworking">AFNetworking</a>替代。</p>
+<p>&emsp;&emsp;* <a href="https://github.com/aceisScope/WaterflowView">LoadingMoreFooterView</a>: 实现上拉加载更多，已在WaterflowView中集成</p>
+<p>&emsp;&emsp;* <a href="https://github.com/jdg/MBProgressHUD">MBProgressHUD</a>: 实现正在加载的提示框</p>
+<p>&emsp;&emsp;* <a href="https://github.com/icanzilb/JSONModel">JSONModel</a>: 强大的JSON映射库，实现json字段和类属性的自动映射。</p>
+<p>&emsp;&emsp;* <a href="https://github.com/samvermette/SVWebViewController">SVWebViewController</a>: 实现一个简单的内置网页浏览器，支持网页浏览的前进后退，还添加了分享功能。</p>
+<p>&emsp;&emsp;万事具备，接下来就是打开Xcode，引入上述的模块，就可以开始搭积木啦，下图是我的工程目录结构：</p>
+<p><img alt="project category" src="../images/dbmeizi_project.jpg" /></p>
+<p>&emsp;&emsp;因为ASIHTTPRequest库不支持ARC，所以我们还需要在Xcode的BuildPhases中将其相关类文件的Compiler Flag设置为-fno-objc-arc</p>
+<p><img alt="BuildPhases" src="../images/dbmeizi_BuildPhases.jpg" /></p>
+<p>&emsp;&emsp;接下来我们就可以来实现app的实现抽屉式导航栏，iOS创建窗口和根视图控制器是在appDeletage的didFinishLaunchingWithOptions方法中，按照GHSidebarNav的demo，引入其头文件并添加代码如下：</p>
+<div class="highlight"><pre><span class="k">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">application:</span><span class="p">(</span><span class="n">UIApplication</span> <span class="o">*</span><span class="p">)</span><span class="nv">application</span> <span class="nf">didFinishLaunchingWithOptions:</span><span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nv">launchOptions</span>
+<span class="p">{</span>
+<span class="n">UIColor</span> <span class="o">*</span><span class="n">bgColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">colorWithRed</span><span class="o">:</span><span class="p">(</span><span class="mf">50.0f</span><span class="o">/</span><span class="mf">255.0f</span><span class="p">)</span> <span class="n">green</span><span class="o">:</span><span class="p">(</span><span class="mf">57.0f</span><span class="o">/</span><span class="mf">255.0f</span><span class="p">)</span> <span class="n">blue</span><span class="o">:</span><span class="p">(</span><span class="mf">74.0f</span><span class="o">/</span><span class="mf">255.0f</span><span class="p">)</span> <span class="n">alpha</span><span class="o">:</span><span class="mf">1.0f</span><span class="p">];</span>
+<span class="n">self</span><span class="p">.</span><span class="n">revealController</span> <span class="o">=</span> <span class="p">[[</span><span class="n">GHRevealViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithNibName</span><span class="o">:</span><span class="nb">nil</span> <span class="n">bundle</span><span class="o">:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="n">self</span><span class="p">.</span><span class="n">revealController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="n">bgColor</span><span class="p">;</span>
+
+<span class="n">RevealBlock</span> <span class="n">revealBlock</span> <span class="o">=</span> <span class="o">^</span><span class="p">(){</span>
+    <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">revealController</span> <span class="n">toggleSidebar</span><span class="o">:!</span><span class="n">self</span><span class="p">.</span><span class="n">revealController</span><span class="p">.</span><span class="n">sidebarShowing</span>
+                                <span class="nl">duration:</span><span class="n">kGHRevealSidebarDefaultAnimationDuration</span><span class="p">];</span>
+<span class="p">};</span>
+
+<span class="n">NSArray</span> <span class="o">*</span><span class="n">headers</span> <span class="o">=</span> <span class="err">@</span><span class="p">[[</span><span class="n">NSNull</span> <span class="n">null</span><span class="p">],</span> <span class="s">@&quot;豆瓣妹子&quot;</span><span class="p">];</span>
+<span class="n">NSArray</span> <span class="o">*</span><span class="n">controllers</span> <span class="o">=</span> <span class="err">@</span><span class="p">[</span>
+                         <span class="err">@</span><span class="p">[</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;首页&quot;</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]]</span>
+                             <span class="p">],</span>
+                         <span class="err">@</span><span class="p">[</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;性感&quot;</span> <span class="n">withCategory</span><span class="o">:</span><span class="n">sexyCategory</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]],</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;有沟&quot;</span>  <span class="n">withCategory</span><span class="o">:</span><span class="n">cleavageCategory</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]],</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;美腿&quot;</span>  <span class="n">withCategory</span><span class="o">:</span><span class="n">prettyLegsCategory</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]],</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;小清新&quot;</span>  <span class="n">withCategory</span><span class="o">:</span><span class="n">cuteCategory</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]],</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;文艺范&quot;</span>  <span class="n">withCategory</span><span class="o">:</span><span class="n">artisticCategory</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]],</span>
+                             <span class="p">[[</span><span class="n">UINavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithRootViewController</span><span class="o">:</span><span class="p">[[</span><span class="n">DBMeiziViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="s">@&quot;今日妹子&quot;</span>  <span class="n">withCategory</span><span class="o">:</span><span class="p">[</span><span class="n">self</span> <span class="n">getNewCategory</span><span class="p">]</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">]],</span>
+
+                             <span class="p">]</span>
+                         <span class="p">];</span>
+<span class="n">NSArray</span> <span class="o">*</span><span class="n">cellInfos</span> <span class="o">=</span> <span class="err">@</span><span class="p">[</span>
+                       <span class="err">@</span><span class="p">[</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;首页&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)}</span>
+                           <span class="p">],</span>
+                       <span class="err">@</span><span class="p">[</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;性感&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)},</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;有沟&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)},</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;美腿&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)},</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;清新&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)},</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;文艺范&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)},</span>
+                           <span class="err">@</span><span class="p">{</span><span class="n">kSidebarCellImageKey</span><span class="o">:</span> <span class="p">[</span><span class="n">UIImage</span> <span class="n">imageNamed</span><span class="o">:</span><span class="s">@&quot;user.png&quot;</span><span class="p">],</span> <span class="n">kSidebarCellTextKey</span><span class="o">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&quot;今日妹子&quot;</span><span class="p">,</span> <span class="s">@&quot;&quot;</span><span class="p">)}</span>
+                           <span class="p">]</span>
+                       <span class="p">];</span>
+
+<span class="c1">// Add drag feature to each root navigation controller</span>
+<span class="p">[</span><span class="n">controllers</span> <span class="n">enumerateObjectsUsingBlock</span><span class="o">:^</span><span class="p">(</span><span class="kt">id</span> <span class="n">obj</span><span class="p">,</span> <span class="n">NSUInteger</span> <span class="n">idx</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="o">*</span><span class="n">stop</span><span class="p">){</span>
+    <span class="p">[((</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="n">obj</span><span class="p">)</span> <span class="n">enumerateObjectsUsingBlock</span><span class="o">:^</span><span class="p">(</span><span class="kt">id</span> <span class="n">obj2</span><span class="p">,</span> <span class="n">NSUInteger</span> <span class="n">idx2</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="o">*</span><span class="n">stop2</span><span class="p">){</span>
+        <span class="n">UIPanGestureRecognizer</span> <span class="o">*</span><span class="n">panGesture</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIPanGestureRecognizer</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithTarget</span><span class="o">:</span><span class="n">self</span><span class="p">.</span><span class="n">revealController</span> 
+                                                                                     <span class="n">action</span><span class="o">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">dragContentView</span><span class="o">:</span><span class="p">)];</span>
+        <span class="n">panGesture</span><span class="p">.</span><span class="n">cancelsTouchesInView</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+        <span class="p">[((</span><span class="n">UINavigationController</span> <span class="o">*</span><span class="p">)</span><span class="n">obj2</span><span class="p">).</span><span class="n">view</span> <span class="n">addGestureRecognizer</span><span class="o">:</span><span class="n">panGesture</span><span class="p">];</span>
+    <span class="p">}];</span>
+<span class="p">}];</span>
+
+<span class="n">self</span><span class="p">.</span><span class="n">menuController</span> <span class="o">=</span> <span class="p">[[</span><span class="n">GHMenuViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithSidebarViewController</span><span class="o">:</span><span class="n">self</span><span class="p">.</span><span class="n">revealController</span>
+                                                                    <span class="nl">withSearchBar:</span><span class="nb">nil</span>
+                                                                      <span class="nl">withHeaders:</span><span class="n">headers</span>
+                                                                  <span class="nl">withControllers:</span><span class="n">controllers</span>
+                                                                    <span class="nl">withCellInfos:</span><span class="n">cellInfos</span><span class="p">];</span>
+
+<span class="n">self</span><span class="p">.</span><span class="n">window</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIWindow</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithFrame</span><span class="o">:</span><span class="p">[</span><span class="n">UIScreen</span> <span class="n">mainScreen</span><span class="p">].</span><span class="n">bounds</span><span class="p">];</span>
+<span class="n">self</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">rootViewController</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">revealController</span><span class="p">;</span>
+<span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">window</span> <span class="n">makeKeyAndVisible</span><span class="p">];</span>
+<span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>&emsp;&emsp;其中的DBMeiziViewController就是接下来要讲的瀑布流视图控制器了。<a href="https://github.com/aceisScope/WaterflowView">WaterflowView</a>实现了一个WaterflowCollectionViewController，这里只需让瀑布流视图控制器DBMeiziViewController继承这个类，并在其init方法中设置WaterFlowLayout布局即可，代码片段如下：</p>
+<div class="highlight"><pre><span class="k">@implementation</span> <span class="nc">DBMeiziViewController</span><span class="p">{</span>
+    <span class="k">@private</span>
+    <span class="n">RevealBlock</span> <span class="n">_revealBlock</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cp">#pragma mark Memory Management</span>
+<span class="o">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="n">initWithTitle</span><span class="o">:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="n">title</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="p">(</span><span class="n">RevealBlock</span><span class="p">)</span><span class="n">revealBlock</span> <span class="p">{</span>
+<span class="n">WaterFlowLayout</span> <span class="o">*</span><span class="n">layout</span> <span class="o">=</span> <span class="p">[[</span><span class="n">WaterFlowLayout</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">self</span> <span class="o">=</span> <span class="p">[</span><span class="n">super</span> <span class="n">initWithCollectionViewLayout</span><span class="o">:</span><span class="n">layout</span><span class="p">])</span> <span class="p">{</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="p">;</span>
+    <span class="n">_revealBlock</span> <span class="o">=</span> <span class="p">[</span><span class="n">revealBlock</span> <span class="n">copy</span><span class="p">];</span>
+    <span class="p">[[</span><span class="n">UINavigationBar</span> <span class="n">appearance</span><span class="p">]</span> <span class="n">setTintColor</span><span class="o">:</span><span class="p">[</span><span class="n">UIColor</span> <span class="n">blackColor</span><span class="p">]];</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">navigationItem</span><span class="p">.</span><span class="n">leftBarButtonItem</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">UIBarButtonItem</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithBarButtonSystemItem</span><span class="o">:</span><span class="n">UIBarButtonSystemItemAction</span>
+                                                      <span class="nl">target:</span><span class="n">self</span>
+                                                      <span class="nl">action:</span><span class="k">@selector</span><span class="p">(</span><span class="n">revealSidebar</span><span class="p">)];</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">collectionView</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">colorWithRed</span><span class="o">:</span><span class="p">(</span><span class="mf">237.0f</span><span class="o">/</span><span class="mf">255.0f</span><span class="p">)</span> <span class="n">green</span><span class="o">:</span><span class="p">(</span><span class="mf">244.0f</span><span class="o">/</span><span class="mf">255.0f</span><span class="p">)</span> <span class="n">blue</span><span class="o">:</span><span class="p">(</span><span class="mf">237.0f</span><span class="o">/</span><span class="mf">255.0f</span><span class="p">)</span> <span class="n">alpha</span><span class="o">:</span><span class="mf">1.0f</span><span class="p">];</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">loadFooterView</span> <span class="o">=</span> <span class="p">[[</span><span class="n">LoadingMoreFooterView</span> <span class="n">alloc</span><span class="p">]</span><span class="n">initWithFrame</span><span class="o">:</span><span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">collectionView</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mf">44.f</span><span class="p">)];</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">loadingmore</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">collectionView</span> <span class="n">addSubview</span><span class="o">:</span><span class="n">self</span><span class="p">.</span><span class="n">loadFooterView</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">return</span> <span class="n">self</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="o">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="n">initWithTitle</span><span class="o">:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="n">title</span> <span class="n">withCategory</span><span class="o">:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="n">category</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="p">(</span><span class="n">RevealBlock</span><span class="p">)</span><span class="n">revealBlock</span> <span class="p">{</span>
+<span class="n">self</span> <span class="o">=</span> <span class="p">[</span><span class="n">self</span> <span class="n">initWithTitle</span><span class="o">:</span><span class="n">title</span> <span class="n">withRevealBlock</span><span class="o">:</span><span class="n">revealBlock</span><span class="p">];</span>
+<span class="n">self</span><span class="p">.</span><span class="n">category</span> <span class="o">=</span> <span class="n">category</span><span class="p">;</span>
+<span class="k">return</span> <span class="n">self</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>&emsp;&emsp;现在，我们可以运行app，在模拟器中即可看到下图所示：</p>
+<p><img alt="waterflow" src="../images/dbmeizi_waterflow.jpg" /></p>
+<p>&emsp;&emsp;慢着，博主不是承诺要显示豆瓣妹纸的图片吗？怎么出来的是几只萌猫呢？这是因为我们还没有实现网络请求获取图片数据。所以，下面就来讲讲如何实现网络请求。
+&emsp;&emsp;首先，我们需要在app中实现图片数据模型，通过对<a href="http://dbmeizi.com/">网站</a>数据的分析，我们的数据模型需要以下这些属性，这里我们的model类继承自<a href="https://github.com/icanzilb/JSONModel">JSONModel</a>类，以获得其自动和JSON数据的映射的功能，代码如下：</p>
+<div class="highlight"><pre><span class="cp">#import &lt;Foundation/Foundation.h&gt;</span>
+<span class="cp">#import &quot;JSONModel.h&quot;</span>
+<span class="k">@interface</span> <span class="nc">DBMeizi</span> : <span class="nc">JSONModel</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">_id</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">category</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">img</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">bigImg</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">people</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">topic</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="n">strong</span><span class="p">,</span> <span class="n">nonatomic</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">name</span><span class="p">;</span>
+
+<span class="k">@end</span>
+<span class="k">@implementation</span> <span class="nc">DBMeizi</span>
+
+<span class="c1">// Map automatically under_score case to camelCase</span>
+<span class="k">+</span> <span class="p">(</span><span class="n">JSONKeyMapper</span><span class="o">*</span><span class="p">)</span><span class="nf">keyMapper</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">JSONKeyMapper</span> <span class="n">mapperFromUnderscoreCaseToCamelCase</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span>
+</pre></div>
+
+
+<p>&emsp;&emsp;接下来还需要一个service类来实现发送网络请求，这里我们用到了<a href="http://blog.devtang.com/blog/2012/02/22/use-gcd/">Grand Central Dispatch </a>多线程来实现异步网络请求，代码如下图。其主要思路就是通过向服务器发送url请求获取json数据，并自动映射到数据模型的属性上。</p>
+<div class="highlight"><pre><span class="k">@implementation</span> <span class="nc">DBMeiziService</span>
+
+<span class="k">+</span> <span class="p">(</span><span class="n">DBMeiziService</span><span class="o">*</span><span class="p">)</span><span class="nf">sharedService</span> <span class="p">{</span>
+    <span class="k">static</span> <span class="n">DBMeiziService</span> <span class="o">*</span><span class="n">_sharedInstance</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="k">static</span> <span class="kt">dispatch_once_t</span> <span class="n">onceToken</span><span class="p">;</span>
+    <span class="n">dispatch_once</span><span class="p">(</span><span class="o">&amp;</span><span class="n">onceToken</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+        <span class="n">_sharedInstance</span> <span class="o">=</span> <span class="p">[[</span><span class="n">DBMeiziService</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+
+    <span class="p">});</span>
+    <span class="k">return</span> <span class="n">_sharedInstance</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dbMeiziWithCategory:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">category</span> <span class="nf">start:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">start</span> <span class="nf">count:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">count</span> <span class="nf">handler:</span><span class="p">(</span><span class="n">CompletionBlock</span><span class="p">)</span><span class="nv">handler</span> <span class="p">{</span>
+<span class="p">[</span><span class="n">HUD</span> <span class="n">showUIBlockingIndicatorWithText</span><span class="o">:</span><span class="s">@&quot;Fetching JSON&quot;</span><span class="p">];</span>
+<span class="n">dispatch_async</span><span class="p">(</span><span class="n">dispatch_get_global_queue</span><span class="p">(</span><span class="n">DISPATCH_QUEUE_PRIORITY_DEFAULT</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">^</span><span class="p">{</span>
+    <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">params</span> <span class="o">=</span> <span class="err">@</span><span class="p">{</span><span class="s">@&quot;category&quot;</span><span class="o">:</span> <span class="err">@</span><span class="p">(</span><span class="n">category</span><span class="p">),</span> <span class="s">@&quot;start&quot;</span><span class="o">:</span> <span class="err">@</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="s">@&quot;count&quot;</span><span class="o">:</span> <span class="err">@</span><span class="p">(</span><span class="n">count</span><span class="p">)};</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">url</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span> <span class="n">addQueryStringToUrlString</span><span class="o">:</span><span class="n">kServerAddr</span> <span class="n">withDictionary</span><span class="o">:</span><span class="n">params</span><span class="p">];</span>
+    <span class="n">PPDebug</span><span class="p">(</span><span class="s">@&quot;Fetching data from: %@&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">);</span>
+    <span class="n">NSData</span> <span class="o">*</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSData</span> <span class="n">dataWithContentsOfURL</span><span class="o">:</span><span class="p">[</span><span class="n">NSURL</span> <span class="n">URLWithString</span><span class="o">:</span><span class="n">url</span><span class="p">]];</span>
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">json</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">items</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">json</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSJSONSerialization</span> <span class="n">JSONObjectWithData</span><span class="o">:</span><span class="n">data</span> <span class="n">options</span><span class="o">:</span><span class="n">kNilOptions</span> <span class="n">error</span><span class="o">:</span><span class="nb">nil</span><span class="p">];</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[</span><span class="n">DBMeizi</span> <span class="n">arrayOfModelsFromDictionaries</span><span class="o">:</span><span class="n">json</span><span class="p">];</span>
+        <span class="n">PPDebug</span><span class="p">(</span><span class="s">@&quot;Result count: %d&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">items</span> <span class="n">count</span><span class="p">]);</span>
+    <span class="p">}</span>
+    <span class="n">dispatch_async</span><span class="p">(</span><span class="n">dispatch_get_main_queue</span><span class="p">(),</span> <span class="o">^</span><span class="p">{</span>
+        <span class="p">[</span><span class="n">HUD</span> <span class="n">hideUIBlockingIndicator</span><span class="p">];</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">handler</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">handler</span><span class="p">(</span><span class="n">items</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">});</span>
+<span class="p">});</span>
+
+<span class="p">}</span>
+
+<span class="k">@end</span>
+</pre></div>
+
+
+<p>&emsp;&emsp;定义好了数据模型和网络请求方法，接下来就可以在视图控制器类中调用了，代码如下图所示。其思路就是将通过网络请求获得的数据赋值给视图控制器的数据模型，让UICollectionViewController的delegate方法显示图片和文字。</p>
+<div class="highlight"><pre><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span>
+<span class="p">{</span>
+     <span class="p">[[</span><span class="n">DBMeiziService</span> <span class="n">sharedService</span><span class="p">]</span> <span class="n">dbMeiziWithCategory</span><span class="o">:</span><span class="n">self</span><span class="p">.</span><span class="n">category</span> <span class="n">start</span><span class="o">:</span><span class="mi">0</span> <span class="n">count</span><span class="o">:</span><span class="n">fetchSize</span> <span class="n">handler</span><span class="o">:^</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="n">dataList</span><span class="p">){</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">dataList</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">arrayWithArray</span><span class="o">:</span><span class="n">dataList</span><span class="p">];</span>
+    <span class="n">PPDebug</span><span class="p">(</span><span class="s">@&quot;dataList count %d&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">dataList</span> <span class="n">count</span><span class="p">]);</span>
+
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">imageList</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">nameList</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">DBMeizi</span> <span class="o">*</span><span class="n">meizi</span> <span class="k">in</span> <span class="n">dataList</span><span class="p">)</span> <span class="p">{</span>
+        <span class="p">[</span><span class="n">imageList</span> <span class="n">addObject</span><span class="o">:</span><span class="n">meizi</span><span class="p">.</span><span class="n">img</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">nameList</span> <span class="n">addObject</span><span class="o">:</span><span class="n">meizi</span><span class="p">.</span><span class="n">name</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">imageUrls</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">arrayWithArray</span><span class="o">:</span><span class="n">imageList</span><span class="p">];</span>
+    <span class="n">self</span><span class="p">.</span><span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">arrayWithArray</span><span class="o">:</span><span class="n">nameList</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">self</span> <span class="n">refresh</span><span class="o">:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="p">}];</span>
+<span class="p">}</span>
+
+<span class="cp">#pragma mark - UICollectionViewDelegate methods</span>
+<span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="nf">collectionView:</span><span class="p">(</span><span class="n">UICollectionView</span> <span class="o">*</span><span class="p">)</span><span class="nv">collectionView</span> <span class="nf">didSelectItemAtIndexPath:</span><span class="p">(</span><span class="n">NSIndexPath</span> <span class="o">*</span><span class="p">)</span><span class="nv">indexPath</span>
+<span class="p">{</span>
+    <span class="n">DBMeizi</span> <span class="o">*</span><span class="n">meizi</span> <span class="o">=</span> <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">dataList</span> <span class="n">objectAtIndex</span><span class="o">:</span><span class="n">indexPath</span><span class="p">.</span><span class="n">row</span><span class="p">];</span>
+    <span class="n">SVWebViewController</span> <span class="o">*</span><span class="n">webViewController</span> <span class="o">=</span> <span class="p">[[</span><span class="n">SVWebViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">initWithAddress</span><span class="o">:</span> <span class="n">meizi</span><span class="p">.</span><span class="n">topic</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">navigationController</span> <span class="n">pushViewController</span><span class="o">:</span><span class="n">webViewController</span> <span class="n">animated</span><span class="o">:</span><span class="nb">YES</span><span class="p">];</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>&emsp;&emsp;完成上面的步骤后，重新run一下程序，自然会看到期待已久的豆瓣妹纸啦。</p>
+<p><img alt="dbmeizi_main" src="../images/dbmeizi_main.jpg" /></p>
+<p>最后，附上以上程序的源码：https://github.com/Kaibin/dbmeizi</p></div>
+    <footer>
+<p class="meta">
+  <span class="byline author vcard">
+    Posted by <span class="fn">Kaibin</span>
+  </span>
+<time datetime="2014-02-15T00:00:00" pubdate>2014-02-15</time>  <span class="categories">
+    <a class="category" href="../tag/ios.html">iOS</a>
+  </span>
+</p><div class="sharing">
+</div>    </footer>
+  </article>
+
+</div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/protobuf_objc.html">protobuf for objectivec</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_online_video_player.html">iOS实现在线视频边下边播</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </li>
+      <li class="post">
+          <a href="../posts/java_interrupt.html">Java中的线程中断机制</a>
+      </li>
+      <li class="post">
+          <a href="../posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

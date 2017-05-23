@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kaibin的技术笔记 - JavaScript</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/javaScript_prototype.html">JavaScript中的prototype和__proto__属性</a>
+      </h1>
+      <p class="meta"><time datetime="2014-01-12T00:00:00" pubdate>2014-01-12</time></p>
+</header>
+
+  <div class="entry-content"><p>在传统的面向对象的语言（C++/Java/C#等）中，都包含类的继承机制，因此类自然是作为一等公民存在。JavaScript虽然也是一种面向对象的语言，但却没有引入“类”（class）的概念，自然也就没有类继承机制，JavaScript使用的是一种叫做原型链（prototype chain）的模型来代替类继承机制，并让函数充当了类的构造函数的作用，函数可以做到像简单值一样赋值、传参、返回，函数在JavaScript自然一跃成为一等公民。关于<a href="http://www.ruanyifeng.com/blog/2011/06/designing_ideas_of_inheritance_mechanism_in_javascript.html">Javascript继承机制的设计思想</a>，可以详看阮一峰博客的这篇文章。</p>
+<p>任何函数，只要通过new操作符调用，那么该函数就称为构造函数，当调用构造函数创建一个新的实例对象后，该实例的内部将包含一个__proto__属性，用于指向构造函数的原型对象。</p>
+<p>JavaScript中的每一个函数，都有一个prototype属性，它用于指向一个对象，该对象用来记录一个方法和属性的集合，这个对象就是通过调用构造函数而创建的实例对象的原型对象。</p>
+<p>上面两句话分别就是对__proto__和prototype属性的定义了，具体可以参见下面这张<a href="http://dmitrysoshnikov.com/ecmascript/javascript-the-core/">图</a>：
+<img alt="prototype" src="/images/prototype.png" /></p>
+<p>图中Foo是一个JavaScript函数，而a和b则是由new Foo()这个构造函数创建的。</p>
+<p>从图中我们可以看到，当我们用 new 关键字创建一个新的实例时，新对象的 <strong>proto ...</strong></p></div>
+  <footer>
+    <a rel="full-article" href="../posts/javaScript_prototype.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+<div class="pagination">
+
+  <br />
+</div></div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/javaScript_prototype.html">JavaScript中的prototype和__proto__属性</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

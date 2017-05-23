@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kaibin的技术笔记 - iOS</title>
+  <meta name="author" content="Kaibin">
+
+
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="../favicon.png" rel="icon">
+  <link href="../theme/css/main.css" media="screen, projection"
+        rel="stylesheet" type="text/css">
+  <script src="../theme/js/modernizr-2.0.js"></script>
+  <script src="../theme/js/ender.js"></script>
+  <script src="../theme/js/octopress.js" type="text/javascript"></script>
+
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic"
+        rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <header role="banner"><hgroup>
+  <h1><a href="../">Kaibin的技术笔记</a></h1>
+</hgroup></header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+</ul>
+
+
+
+<ul class="main-navigation">
+  <li>
+    <a href="./index.html">首页</a>
+  </li>
+  <li>
+    <a href="./archives.html">所有文章</a>
+  </li>
+  <li>
+    <a href="./about.html">关于我</a>
+  </li>
+</ul></nav>
+  <div id="main">
+    <div id="content">
+<div class="blog-index">
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/protobuf_objc.html">protobuf for objectivec</a>
+      </h1>
+      <p class="meta"><time datetime="2017-05-23T00:00:00" pubdate>2017-05-23</time></p>
+</header>
+
+  <div class="entry-content"><p>Protocol Buffers
+是一种轻便高效的结构化数据存储格式，可以用于结构化数据串行化，可用于通讯协议、数据存储等领域的语言无关、平台无关、可扩展的序列化结构数据格式。</p>
+<p>下面列出iOS中使用protobuf的步骤：</p>
+<ul>
+<li>下载安装protobuf库：git clone https://github.com/google/protobuf </li>
+<br>
+<li>生成protoc编译器，运行： protobuf/objectivec/DevTools/full_mac_build.sh，会在src目录下生成protoc二进制的可执行文件，这就是protoc编译器，用于将.proto文件生成objc代码</li>
+<br>
+<li>接下来可以将protobuf/objectivec目录下的.h和.m源文件连同ProtocolBuffers_iOS.xcodeproj拷贝到我们的工程目录下，这里我们放在了framework的目录下，并将ProtocolBuffers_iOS.xcodeproj拖拽到Xcode目录中，最后将framework目录添加到Xcode的Header Search Paths里面。</li>
+<br>
+<li>新建一个叫person.proto的Message文件，放在Xcode的protobuf/src目录下</li>
+<br>
+<li>为person.proto文件生成objectivec源文件，这里我写了一个叫make.sh的脚本，会在protobuf/target目录下生成objectivec目标文件
+<pre><code>
+#!/bin ...</code></pre></li></ul></div>
+  <footer>
+    <a rel="full-article" href="../posts/protobuf_objc.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </h1>
+      <p class="meta"><time datetime="2014-03-01T00:00:00" pubdate>2014-03-01</time></p>
+</header>
+
+  <div class="entry-content"><p>Delegate模式贯穿于整个iOS SDK，是运用Objective-C的运行时来实现的一种设计模式，它是装饰器模式的一种实现。</p>
+<p>熟悉设计模式的都知道，装饰器是在运行时动态地给一个对象添加一些额外的行为和职责，因此，iOS中的Delegate就是利用Objective-C的Runtime来动态的判断某个对象是否存在，是否实现了某些selector，如果实现了，则通过调用该对象的这些选择器来帮助自己实现某些功能，这里的用来帮助自己实现某些功能的对象就叫做delegate（委托）。</p>
+<p>所以说其实delegate模式，就是大家约定俗成，当把自己内部一部分实现暴露给另外一个类去做，就个实际做事的类就作为delegate。</p>
+<p>举个最常用的例子，当我们使用UITableView来显示一个列表的时候，我们需要知道这个列表要显示多少行，以及每一行需要显示什么内容。Apple提供的UITableView是一个View类的子类，它的职责就是绘制和显示表格，根据面向对象的单一职责原则，UITableView类就应该独立于它要显示的数据。因此，UITableView就需要一个UITableViewDataSource委托对象，当UITableView要绘制表格的行数时，它就发送消息给这个委托，委托对象就返回一个行数值；当UITableView要绘制每个单元格的内容时，它又发送消息给委托，委托对象返回单元格对象给UITableView去显示内容，下面这张图就解释了UITableView的绘制过程：</p>
+<p><img alt="UITableView delegate" src="/images/delegate.png" /></p>
+<p>那么，Apple是如何设计这种Delegate模式的呢？</p>
+<p>通过查看UITableView的头文件，我们可以看到这个定义：</p>
+<div class="highlight"><pre><span class="k">@protocol</span> <span class="nc">UITableViewDataSource</span><span class="o">&lt;</span><span class="n">NSObject</span><span class="o">&gt;</span>
+
+<span class="err">@</span><span class="n">required</span>
+
+<span class="o">-</span> <span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="n">tableView</span><span class="o">:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="n">tableView</span> <span class="n">numberOfRowsInSection</span><span class="o">:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="n">section</span><span class="p">;</span>
+
+<span class="k">-</span> <span class="p">(</span><span class="n">UITableViewCell ...</span></pre></div></div>
+  <footer>
+    <a rel="full-article" href="../posts/ios_delegate.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+  		<article>
+<header>
+      <h1 class="entry-title">
+        <a href="../posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </h1>
+      <p class="meta"><time datetime="2014-02-15T00:00:00" pubdate>2014-02-15</time></p>
+</header>
+
+  <div class="entry-content"><p>&emsp;&emsp;话说二月十四，恰逢19年一遇的元宵情人节同一天，博主早早下班回家，吃完饭坐在沙发上刷豆瓣，看到友邻发一条豆瓣说，点进去一看，好家伙，原来是个福利贴，是某程序员写爬虫收集豆瓣上面的姑娘晒出来的图片的<a href="http://dbmeizi.com/">网站</a>，图片很真实，豆瓣妹纸果然很给力。网站对手机的适配还不错，于是博主又尝试到AppStore搜一下是否有对应的app，可惜，没有! 于是，博主就闪出一个念头，长夜漫漫，不如就给它做个iOS客户端吧。</p>
+<p>&emsp;&emsp;好家伙，说干就干！拿出Macbook，打开Xcode，且慢，难道从零开始写？</p>
+<p>&emsp;&emsp;感谢上帝，这是一个开源的时代，我们站在巨人的肩膀上，写程序就像是在搭积木，别人已经做好了积木，觉得好用我们拿来拼搭就是了。目前互联网最有名的开源社区当属Github莫属了，本博客其实也是借助Github Pages再加上Pelican静态网站工具搭建的。那么，搭建一个显示图片的iOS客户端需要哪些模块呢？用过“花瓣”这个应用的知道，其图片展示方式是瀑布流的网格方式，支持下拉刷新上拉加载更多，使用抽屉式的导航方式，异步加载图片等等。</p>
+<p>&emsp;&emsp;知道我们需要用到什么东西了，那么我们自然可以去Github上找其开源实现啦，典型的拿来主义啊！</p>
+<p>&emsp;&emsp;首先，我们得确定app所要支持的iOS最低版本，据 ...</p></div>
+  <footer>
+    <a rel="full-article" href="../posts/waterflow_demo.html">Read On &crarr;</a>
+  </footer>
+  		</article>
+<div class="pagination">
+
+  <br />
+</div></div>
+<aside class="sidebar">
+  <section>
+    <h1>Recent Posts</h1>
+    <ul id="recent_posts">
+      <li class="post">
+          <a href="../posts/protobuf_objc.html">protobuf for objectivec</a>
+      </li>
+      <li class="post">
+          <a href="../posts/ios_delegate.html">iOS中的Delegate模式</a>
+      </li>
+      <li class="post">
+          <a href="../posts/waterflow_demo.html">实现一个简单的图片瀑布流APP</a>
+      </li>
+    </ul>
+  </section>
+  <section>
+      
+    <h1>Categories</h1>
+    <ul id="recent_posts">
+        <li><a href="../category/git.html">Git</a></li>
+        <li><a href="../category/ios.html">iOS</a></li>
+        <li><a href="../category/java.html">Java</a></li>
+        <li><a href="../category/javascript.html">JavaScript</a></li>
+        <li><a href="../category/mysql.html">MySQL</a></li>
+        <li><a href="../category/python.html">Python</a></li>
+    </ul>
+  </section>
+ 
+
+  <section>
+  <h1>Tags</h1>
+    <a href="../tag/git.html">Git</a>,    <a href="../tag/java.html">Java</a>,    <a href="../tag/python.html">Python</a>,    <a href="../tag/javascript.html">JavaScript</a>,    <a href="../tag/ios.html">iOS</a>,    <a href="../tag/mysql.html">MySQL</a>  </section>
+
+
+    <section>
+        <h1>Social</h1>
+        <ul>
+            <li><a href="#" target="_blank">You can add links in your config file</a></li>
+            <li><a href="#" target="_blank">Another social link</a></li>
+        </ul>
+    </section>
+    <section>
+        <h1>Blogroll</h1>
+        <ul>
+            <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+            <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+            <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+            <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+    </section>
+
+</aside>    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Kaibin -
+  <span class="credit">Powered by <a href="http://getpelican.com">Pelican</a></span>
+</p></footer>
+</body>
+</html>

@@ -1,0 +1,1006 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Kaibin的技术笔记</title><link href="/" rel="alternate"></link><link href="/feeds/all.atom.xml" rel="self"></link><id>/</id><updated>2014-03-01T00:00:00+08:00</updated><entry><title>iOS中的Delegate模式</title><link href="/posts/ios_delegate.html" rel="alternate"></link><updated>2014-03-01T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-03-01:posts/ios_delegate.html</id><summary type="html">&lt;p&gt;Delegate模式贯穿于整个iOS SDK，是运用Objective-C的运行时来实现的一种设计模式，它是装饰器模式的一种实现。&lt;/p&gt;
+&lt;p&gt;熟悉设计模式的都知道，装饰器是在运行时动态地给一个对象添加一些额外的行为和职责，因此，iOS中的Delegate就是利用Objective-C的Runtime来动态的判断某个对象是否存在，是否实现了某些selector，如果实现了，则通过调用该对象的这些选择器来帮助自己实现某些功能，这里的用来帮助自己实现某些功能的对象就叫做delegate（委托）。&lt;/p&gt;
+&lt;p&gt;所以说其实delegate模式，就是大家约定俗成，当把自己内部一部分实现暴露给另外一个类去做，就个实际做事的类就作为delegate。&lt;/p&gt;
+&lt;p&gt;举个最常用的例子，当我们使用UITableView来显示一个列表的时候，我们需要知道这个列表要显示多少行，以及每一行需要显示什么内容。Apple提供的UITableView是一个View类的子类，它的职责就是绘制和显示表格，根据面向对象的单一职责原则，UITableView类就应该独立于它要显示的数据。因此，UITableView就需要一个UITableViewDataSource委托对象，当UITableView要绘制表格的行数时，它就发送消息给这个委托，委托对象就返回一个行数值；当UITableView要绘制每个单元格的内容时，它又发送消息给委托，委托对象返回单元格对象给UITableView去显示内容，下面这张图就解释了UITableView的绘制过程：&lt;/p&gt;
+&lt;p&gt;&lt;img alt="UITableView delegate" src="/images/delegate.png" /&gt;&lt;/p&gt;
+&lt;p&gt;那么，Apple是如何设计这种Delegate模式的呢？&lt;/p&gt;
+&lt;p&gt;通过查看UITableView的头文件，我们可以看到这个定义：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;@protocol&lt;/span&gt; &lt;span class="nc"&gt;UITableViewDataSource&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;NSObject&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
+
+&lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;required&lt;/span&gt;
+
+&lt;span class="o"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSInteger&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;tableView&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;UITableView&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;tableView&lt;/span&gt; &lt;span class="n"&gt;numberOfRowsInSection&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSInteger&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;section&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;UITableViewCell&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nf"&gt;tableView:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;UITableView&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;tableView&lt;/span&gt; &lt;span class="nf"&gt;cellForRowAtIndexPath:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSIndexPath&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;indexPath&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;@end&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;也就是说，可以通过protocol来实现delegate。protocol是一种语法，与java里interface的概念类似，定义了一组方法的集合，而这些方法是需要被实现的，当某个类conform to protocol时，它就必须实现这组函数。&lt;/p&gt;
+&lt;p&gt;Apple设计UITableView的时候，其内部就持有了一个实现了UITableViewDataSource协议的id类型的弱引用:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="p"&gt;@&lt;/span&gt;&lt;span class="nx"&gt;property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;assign&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="nb"&gt;id&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nx"&gt;UITableViewDataSource&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="nx"&gt;dataSource&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;当需要执行绘制任务时，就给这个UITableViewDataSource发送消息。当我们让某个类实现这个UITableViewDataSource协议，实现其中的这两个required方法，并将其传给UITableView中的dataSource，那么它就是UITableView的数据也委托对象了，这就达到了UITableView的数据模型和显示的分离，并且，可以将这个delegate赋给其它的UITableView对象，也就实现了代码的重用功能。&lt;/p&gt;</summary><category term="iOS"></category></entry><entry><title>Java中的线程中断机制</title><link href="/posts/java_interrupt.html" rel="alternate"></link><updated>2014-02-20T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-02-20:posts/java_interrupt.html</id><summary type="html">&lt;p&gt;&amp;emsp;&amp;emsp;Java中的许多方法，如 Thread.sleep(), Object.join() 和 Object.wait()等，都可以抛出InterruptedException，这是一个受检异常（checked exception），因此必须在代码中被捕获。通常，当一个方法抛出 InterruptedException，说明这是一个阻塞（blocking）方法，阻塞方法可能因为等不到所等的事件而无法终止，因此令阻塞方法可取消就非常有用。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;Java的&lt;strong&gt;线程中断机制&lt;/strong&gt;是一种&lt;strong&gt;协作机制&lt;/strong&gt;，能够使一个线程通知另一个线程，告诉目标线程在合适的情况下终止当前工作。&lt;/p&gt;
+&lt;h2&gt;线程中断&lt;/h2&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;每个Java线程都有一个用于表示线程中断状态（interrupted status）的标志，其初始值为false。
+当在一个线程中，调用了另一个目标线程的 &lt;strong&gt;interrupt( )&lt;/strong&gt;方法时，会发生以下两种情况之一：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;如果目标线程正在执行阻塞方法，例如 Thread.sleep( ), Thread.join( ) 或 Object.wait( )，那么它将取消阻塞并抛出InterruptedException，并且，目标线程的interrupted status标志&lt;strong&gt;不会&lt;/strong&gt;被设置为true。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;当线程在非阻塞状态下时，interrupt() 只是设置目标线程的中断状态，在被中断的目标线程中运行的代码以后可以轮询中断状态，看看它是否被请求停止正在做的事情。这个中断状态可以通过两种方式读取：    &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;boolean&lt;/span&gt; &lt;span class="n"&gt;interrupted&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="err"&gt;#清除当前线程的中断状态，并返回它之前的值&lt;/span&gt;
+
+&lt;span class="n"&gt;boolean&lt;/span&gt; &lt;span class="n"&gt;isInterrupted&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;     &lt;span class="err"&gt;#返回目标线程的中断状态&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;其中，静态的interrupted( )方法会清除当前线程的interrupted status标志，而非静态的isInterrupted( )方法，通常用于一个线程查询另一个线程的interrupt status标志，不会改变被查询线程的中断标志位。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;&lt;em&gt;调用interrupt( )并不意味着立即停止目标线程正在执行的工作，而只是传递了请求中断的消息，通常，中断是实现取消的最合理方式&lt;/em&gt; ——Java并发编程实践&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;以下代码展示一个可取消的线程，通过在另一个线程中调用cancel( )方法就可以退出该线程。可以通过这种生吞中断来达到线程退出的模式来实现可取消的任务。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;StoppedThread&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+       &lt;span class="n"&gt;try&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+          &lt;span class="k"&gt;while&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="n"&gt;Thread&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;currentThread&lt;/span&gt;&lt;span class="p"&gt;().&lt;/span&gt;&lt;span class="n"&gt;isInterrupted&lt;/span&gt;&lt;span class="p"&gt;())&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+             &lt;span class="c1"&gt;// ...&lt;/span&gt;
+          &lt;span class="p"&gt;}&lt;/span&gt;
+       &lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="n"&gt;catch&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;InterruptedException&lt;/span&gt; &lt;span class="n"&gt;e&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+          &lt;span class="cm"&gt;/* Allow thread to exit */&lt;/span&gt;
+       &lt;span class="p"&gt;}&lt;/span&gt;
+
+    &lt;span class="p"&gt;}&lt;/span&gt;
+
+    &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;cancel&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; 
+        &lt;span class="n"&gt;interrupt&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt; 
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;响应中断&lt;/h2&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;阻塞方法通常会抛出一个InterruptedException来表示中断异常，通常有两种策略用来处理InterruptedException。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;传递异常：一种最容易的策略就是在声明方法时抛出 InterruptedException，将异常向上抛出，由该方法的调用者来处理该异常。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;恢复中断状态：当阻塞方法检测到中断时，它们响应中断时执行的操作包括：清除中断状态，抛出 InterruptedException 并提前结束阻塞。更多情况下，我们需要保留中断发生的证据，以便调用栈中更高层的代码能知道中断并采取进一步的操作。因此，需要通过调用&lt;strong&gt;interrupt( )&lt;/strong&gt; 以 “重新中断” 当前线程来达到恢复中断状态的目的。    &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="nf"&gt;class&lt;/span&gt; &lt;span class="nx"&gt;TaskRunner&lt;/span&gt; &lt;span class="nx"&gt;implements&lt;/span&gt; &lt;span class="nx"&gt;Runnable&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;private&lt;/span&gt; &lt;span class="nf"&gt;BlockingQueue&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nx"&gt;Task&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="nb"&gt;queue&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="nf"&gt;TaskRunner&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="na"&gt;BlockingQueue&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nx"&gt;Task&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="nb"&gt;queue&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; 
+        &lt;span class="n"&gt;this.queue&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;queue&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; 
+    &lt;span class="p"&gt;}&lt;/span&gt;
+
+    &lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="nf"&gt;void&lt;/span&gt; &lt;span class="nb"&gt;run&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; 
+        &lt;span class="nx"&gt;try&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+            &lt;span class="k"&gt;while&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kc"&gt;true&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+                &lt;span class="nx"&gt;Task&lt;/span&gt; &lt;span class="n"&gt;task&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;queue.take&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;10&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nx"&gt;TimeUnit.SECONDS&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+                &lt;span class="nx"&gt;task.execute&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+            &lt;span class="p"&gt;}&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="nx"&gt;catch&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;InterruptedException&lt;/span&gt; &lt;span class="nx"&gt;e&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; 
+            &lt;span class="c1"&gt;// Restore the interrupted status&lt;/span&gt;
+            &lt;span class="k"&gt;Thread&lt;/span&gt;&lt;span class="bp"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;currentThread&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="bp"&gt;.&lt;/span&gt;&lt;span class="nb"&gt;interrupt&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;对于一些不支持取消但仍可以调用可中断阻塞方法的操作，它们必须在循环中调用这些方法，并在发现中断后重新尝试。在这种情况下，仍然需要保留中断状态，但却是在方法返回前恢复中断状态而不是在捕获InterruptedException时恢复状态。因为大多数可中断的阻塞方法都会在入口处检查中断状态并立即抛出InterruptedException，如果过早地发现并恢复中断，则会引起无线循环。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="nf"&gt;class&lt;/span&gt; &lt;span class="nx"&gt;NoncancelableTask&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="nf"&gt;Task&lt;/span&gt; &lt;span class="nx"&gt;getNextTask&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;BlockingQueue&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nx"&gt;Task&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="nb"&gt;queue&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="nb"&gt;boolean&lt;/span&gt; &lt;span class="n"&gt;interrupted&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="kc"&gt;false&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="nx"&gt;try&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;while&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kc"&gt;true&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+            &lt;span class="nx"&gt;try&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+                &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nx"&gt;queue.take&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+            &lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="nx"&gt;catch&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;InterruptedException&lt;/span&gt; &lt;span class="nx"&gt;e&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+                &lt;span class="n"&gt;interrupted&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="kc"&gt;true&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+                &lt;span class="c1"&gt;// fall through and retry&lt;/span&gt;
+            &lt;span class="p"&gt;}&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="nx"&gt;finally&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;interrupted&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+            &lt;span class="k"&gt;Thread&lt;/span&gt;&lt;span class="bp"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;currentThread&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="bp"&gt;.&lt;/span&gt;&lt;span class="nb"&gt;interrupt&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;不可中断的阻塞方法&lt;/h2&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;并非所有的阻塞方法都抛出 InterruptedException。输入和输出流类会阻塞等待 I/O 完成，但是它们不抛出 InterruptedException，而且在被中断的情况下也不会提前返回。   类似地，尝试获取一个内部锁的操作（进入一个 synchronized 块）是不能被中断的，但是 ReentrantLock 支持可中断的获取模式。&lt;/p&gt;
+&lt;h3&gt;参考文献：&lt;/h3&gt;
+&lt;p&gt;http://stackoverflow.com/questions/671049/how-do-you-kill-a-thread-in-java  &lt;br /&gt;
+http://www.ibm.com/developerworks/cn/java/j-jtp05236.html  &lt;br /&gt;
+http://stackoverflow.com/questions/3590000/what-does-java-lang-thread-interrupt-do  &lt;br /&gt;
+http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#interrupt--  &lt;br /&gt;
+http://docs.oracle.com/javase/tutorial/essential/concurrency/interrupt.html&lt;/p&gt;</summary><category term="Java"></category></entry><entry><title>实现一个简单的图片瀑布流APP</title><link href="/posts/waterflow_demo.html" rel="alternate"></link><updated>2014-02-15T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-02-15:posts/waterflow_demo.html</id><summary type="html">&lt;p&gt;&amp;emsp;&amp;emsp;话说二月十四，恰逢19年一遇的元宵情人节同一天，博主早早下班回家，吃完饭坐在沙发上刷豆瓣，看到友邻发一条豆瓣说，点进去一看，好家伙，原来是个福利贴，是某程序员写爬虫收集豆瓣上面的姑娘晒出来的图片的&lt;a href="http://dbmeizi.com/"&gt;网站&lt;/a&gt;，图片很真实，豆瓣妹纸果然很给力。网站对手机的适配还不错，于是博主又尝试到AppStore搜一下是否有对应的app，可惜，没有! 于是，博主就闪出一个念头，长夜漫漫，不如就给它做个iOS客户端吧。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;好家伙，说干就干！拿出Macbook，打开Xcode，且慢，难道从零开始写？&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;感谢上帝，这是一个开源的时代，我们站在巨人的肩膀上，写程序就像是在搭积木，别人已经做好了积木，觉得好用我们拿来拼搭就是了。目前互联网最有名的开源社区当属Github莫属了，本博客其实也是借助Github Pages再加上Pelican静态网站工具搭建的。那么，搭建一个显示图片的iOS客户端需要哪些模块呢？用过“花瓣”这个应用的知道，其图片展示方式是瀑布流的网格方式，支持下拉刷新上拉加载更多，使用抽屉式的导航方式，异步加载图片等等。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;知道我们需要用到什么东西了，那么我们自然可以去Github上找其开源实现啦，典型的拿来主义啊！&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;首先，我们得确定app所要支持的iOS最低版本，据&lt;a href="http://david-smith.org/iosversionstats/"&gt;统计&lt;/a&gt;，iPhone iOS6以上版本所占的比例已高达98%，因此这里选用iOS6 SDK，Xcode版本是最新的Xcode5，默认支持ARC，关于ARC的知识，可以点击&lt;a href="http://onevcat.com/2012/06/arc-hand-by-hand/"&gt;这里&lt;/a&gt;查看其使用。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;接下来就可以列出图片瀑布app要用到的Github开源实现了：&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/gresrun/GHSidebarNav"&gt;GHSidebarNav&lt;/a&gt;: 实现抽屉式导航栏，支持ARC&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/aceisScope/WaterflowView"&gt;WaterflowView&lt;/a&gt;: 使用iOS6新加入的强大的UICollectionView实现瀑布流&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/pokeb/asi-http-request/"&gt;ASIHTTPRequest&lt;/a&gt;: 强大的HTTP请求第三方类库，已在WaterflowView中集成。缺点是不支持ARC，已停止更新，建议使用&lt;a href="https://github.com/AFNetworking/AFNetworking"&gt;AFNetworking&lt;/a&gt;替代。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/aceisScope/WaterflowView"&gt;LoadingMoreFooterView&lt;/a&gt;: 实现上拉加载更多，已在WaterflowView中集成&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/jdg/MBProgressHUD"&gt;MBProgressHUD&lt;/a&gt;: 实现正在加载的提示框&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/icanzilb/JSONModel"&gt;JSONModel&lt;/a&gt;: 强大的JSON映射库，实现json字段和类属性的自动映射。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;* &lt;a href="https://github.com/samvermette/SVWebViewController"&gt;SVWebViewController&lt;/a&gt;: 实现一个简单的内置网页浏览器，支持网页浏览的前进后退，还添加了分享功能。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;万事具备，接下来就是打开Xcode，引入上述的模块，就可以开始搭积木啦，下图是我的工程目录结构：&lt;/p&gt;
+&lt;p&gt;&lt;img alt="project category" src="../images/dbmeizi_project.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;因为ASIHTTPRequest库不支持ARC，所以我们还需要在Xcode的BuildPhases中将其相关类文件的Compiler Flag设置为-fno-objc-arc&lt;/p&gt;
+&lt;p&gt;&lt;img alt="BuildPhases" src="../images/dbmeizi_BuildPhases.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;接下来我们就可以来实现app的实现抽屉式导航栏，iOS创建窗口和根视图控制器是在appDeletage的didFinishLaunchingWithOptions方法中，按照GHSidebarNav的demo，引入其头文件并添加代码如下：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;BOOL&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nf"&gt;application:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;UIApplication&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;application&lt;/span&gt; &lt;span class="nf"&gt;didFinishLaunchingWithOptions:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSDictionary&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;launchOptions&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="n"&gt;UIColor&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;bgColor&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIColor&lt;/span&gt; &lt;span class="n"&gt;colorWithRed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;50.0f&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;255.0f&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;green&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;57.0f&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;255.0f&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;blue&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;74.0f&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;255.0f&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;alpha&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mf"&gt;1.0f&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;GHRevealViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithNibName&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="nb"&gt;nil&lt;/span&gt; &lt;span class="n"&gt;bundle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="nb"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;view&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;backgroundColor&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;bgColor&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="n"&gt;RevealBlock&lt;/span&gt; &lt;span class="n"&gt;revealBlock&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;^&lt;/span&gt;&lt;span class="p"&gt;(){&lt;/span&gt;
+    &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt; &lt;span class="n"&gt;toggleSidebar&lt;/span&gt;&lt;span class="o"&gt;:!&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sidebarShowing&lt;/span&gt;
+                                &lt;span class="nl"&gt;duration:&lt;/span&gt;&lt;span class="n"&gt;kGHRevealSidebarDefaultAnimationDuration&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="p"&gt;};&lt;/span&gt;
+
+&lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;headers&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;NSNull&lt;/span&gt; &lt;span class="n"&gt;null&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;豆瓣妹子&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;controllers&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;
+                         &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;首页&amp;quot;&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]]&lt;/span&gt;
+                             &lt;span class="p"&gt;],&lt;/span&gt;
+                         &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;性感&amp;quot;&lt;/span&gt; &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;sexyCategory&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]],&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;有沟&amp;quot;&lt;/span&gt;  &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;cleavageCategory&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]],&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;美腿&amp;quot;&lt;/span&gt;  &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;prettyLegsCategory&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]],&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;小清新&amp;quot;&lt;/span&gt;  &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;cuteCategory&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]],&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;文艺范&amp;quot;&lt;/span&gt;  &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;artisticCategory&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]],&lt;/span&gt;
+                             &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithRootViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;今日妹子&amp;quot;&lt;/span&gt;  &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt; &lt;span class="n"&gt;getNewCategory&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;]],&lt;/span&gt;
+
+                             &lt;span class="p"&gt;]&lt;/span&gt;
+                         &lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;cellInfos&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;
+                       &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;首页&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)}&lt;/span&gt;
+                           &lt;span class="p"&gt;],&lt;/span&gt;
+                       &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;性感&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)},&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;有沟&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)},&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;美腿&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)},&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;清新&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)},&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;文艺范&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)},&lt;/span&gt;
+                           &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="n"&gt;kSidebarCellImageKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIImage&lt;/span&gt; &lt;span class="n"&gt;imageNamed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;user.png&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt; &lt;span class="n"&gt;kSidebarCellTextKey&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;NSLocalizedString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;今日妹子&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)}&lt;/span&gt;
+                           &lt;span class="p"&gt;]&lt;/span&gt;
+                       &lt;span class="p"&gt;];&lt;/span&gt;
+
+&lt;span class="c1"&gt;// Add drag feature to each root navigation controller&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;controllers&lt;/span&gt; &lt;span class="n"&gt;enumerateObjectsUsingBlock&lt;/span&gt;&lt;span class="o"&gt;:^&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;id&lt;/span&gt; &lt;span class="n"&gt;obj&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;NSUInteger&lt;/span&gt; &lt;span class="n"&gt;idx&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;BOOL&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;stop&lt;/span&gt;&lt;span class="p"&gt;){&lt;/span&gt;
+    &lt;span class="p"&gt;[((&lt;/span&gt;&lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;obj&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;enumerateObjectsUsingBlock&lt;/span&gt;&lt;span class="o"&gt;:^&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;id&lt;/span&gt; &lt;span class="n"&gt;obj2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;NSUInteger&lt;/span&gt; &lt;span class="n"&gt;idx2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="kt"&gt;BOOL&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;stop2&lt;/span&gt;&lt;span class="p"&gt;){&lt;/span&gt;
+        &lt;span class="n"&gt;UIPanGestureRecognizer&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;panGesture&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UIPanGestureRecognizer&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithTarget&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt; 
+                                                                                     &lt;span class="n"&gt;action&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="k"&gt;@selector&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dragContentView&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;)];&lt;/span&gt;
+        &lt;span class="n"&gt;panGesture&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;cancelsTouchesInView&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;YES&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+        &lt;span class="p"&gt;[((&lt;/span&gt;&lt;span class="n"&gt;UINavigationController&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;obj2&lt;/span&gt;&lt;span class="p"&gt;).&lt;/span&gt;&lt;span class="n"&gt;view&lt;/span&gt; &lt;span class="n"&gt;addGestureRecognizer&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;panGesture&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="p"&gt;}];&lt;/span&gt;
+&lt;span class="p"&gt;}];&lt;/span&gt;
+
+&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;menuController&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;GHMenuViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithSidebarViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt;
+                                                                    &lt;span class="nl"&gt;withSearchBar:&lt;/span&gt;&lt;span class="nb"&gt;nil&lt;/span&gt;
+                                                                      &lt;span class="nl"&gt;withHeaders:&lt;/span&gt;&lt;span class="n"&gt;headers&lt;/span&gt;
+                                                                  &lt;span class="nl"&gt;withControllers:&lt;/span&gt;&lt;span class="n"&gt;controllers&lt;/span&gt;
+                                                                    &lt;span class="nl"&gt;withCellInfos:&lt;/span&gt;&lt;span class="n"&gt;cellInfos&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+
+&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;window&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UIWindow&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithFrame&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIScreen&lt;/span&gt; &lt;span class="n"&gt;mainScreen&lt;/span&gt;&lt;span class="p"&gt;].&lt;/span&gt;&lt;span class="n"&gt;bounds&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;window&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;rootViewController&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;revealController&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;window&lt;/span&gt; &lt;span class="n"&gt;makeKeyAndVisible&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nb"&gt;YES&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&amp;emsp;&amp;emsp;其中的DBMeiziViewController就是接下来要讲的瀑布流视图控制器了。&lt;a href="https://github.com/aceisScope/WaterflowView"&gt;WaterflowView&lt;/a&gt;实现了一个WaterflowCollectionViewController，这里只需让瀑布流视图控制器DBMeiziViewController继承这个类，并在其init方法中设置WaterFlowLayout布局即可，代码片段如下：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;@implementation&lt;/span&gt; &lt;span class="nc"&gt;DBMeiziViewController&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;@private&lt;/span&gt;
+    &lt;span class="n"&gt;RevealBlock&lt;/span&gt; &lt;span class="n"&gt;_revealBlock&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="cp"&gt;#pragma mark Memory Management&lt;/span&gt;
+&lt;span class="o"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;id&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;title&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;RevealBlock&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="n"&gt;WaterFlowLayout&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;layout&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;WaterFlowLayout&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;super&lt;/span&gt; &lt;span class="n"&gt;initWithCollectionViewLayout&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;layout&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;title&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;title&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;_revealBlock&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt; &lt;span class="n"&gt;copy&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UINavigationBar&lt;/span&gt; &lt;span class="n"&gt;appearance&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;setTintColor&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIColor&lt;/span&gt; &lt;span class="n"&gt;blackColor&lt;/span&gt;&lt;span class="p"&gt;]];&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;navigationItem&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;leftBarButtonItem&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt;
+        &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;UIBarButtonItem&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithBarButtonSystemItem&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;UIBarButtonSystemItemAction&lt;/span&gt;
+                                                      &lt;span class="nl"&gt;target:&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;
+                                                      &lt;span class="nl"&gt;action:&lt;/span&gt;&lt;span class="k"&gt;@selector&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;revealSidebar&lt;/span&gt;&lt;span class="p"&gt;)];&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;collectionView&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;backgroundColor&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;UIColor&lt;/span&gt; &lt;span class="n"&gt;colorWithRed&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;237.0f&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;255.0f&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;green&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;244.0f&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;255.0f&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;blue&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;237.0f&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;255.0f&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;alpha&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mf"&gt;1.0f&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;loadFooterView&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;LoadingMoreFooterView&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="n"&gt;initWithFrame&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;CGRectMake&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;collectionView&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;frame&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;size&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;height&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;view&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;frame&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;size&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;width&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mf"&gt;44.f&lt;/span&gt;&lt;span class="p"&gt;)];&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;loadingmore&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;NO&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;collectionView&lt;/span&gt; &lt;span class="n"&gt;addSubview&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;loadFooterView&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="o"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;id&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;title&lt;/span&gt; &lt;span class="n"&gt;withCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSUInteger&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;category&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;RevealBlock&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="n"&gt;self&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt; &lt;span class="n"&gt;initWithTitle&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;title&lt;/span&gt; &lt;span class="n"&gt;withRevealBlock&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;revealBlock&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;category&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;category&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&amp;emsp;&amp;emsp;现在，我们可以运行app，在模拟器中即可看到下图所示：&lt;/p&gt;
+&lt;p&gt;&lt;img alt="waterflow" src="../images/dbmeizi_waterflow.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;慢着，博主不是承诺要显示豆瓣妹纸的图片吗？怎么出来的是几只萌猫呢？这是因为我们还没有实现网络请求获取图片数据。所以，下面就来讲讲如何实现网络请求。
+&amp;emsp;&amp;emsp;首先，我们需要在app中实现图片数据模型，通过对&lt;a href="http://dbmeizi.com/"&gt;网站&lt;/a&gt;数据的分析，我们的数据模型需要以下这些属性，这里我们的model类继承自&lt;a href="https://github.com/icanzilb/JSONModel"&gt;JSONModel&lt;/a&gt;类，以获得其自动和JSON数据的映射的功能，代码如下：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;#import &amp;lt;Foundation/Foundation.h&amp;gt;&lt;/span&gt;
+&lt;span class="cp"&gt;#import &amp;quot;JSONModel.h&amp;quot;&lt;/span&gt;
+&lt;span class="k"&gt;@interface&lt;/span&gt; &lt;span class="nc"&gt;DBMeizi&lt;/span&gt; : &lt;span class="nc"&gt;JSONModel&lt;/span&gt;
+
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;_id&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;category&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;img&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;bigImg&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;people&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;topic&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;@property&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;strong&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;nonatomic&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;@end&lt;/span&gt;
+&lt;span class="k"&gt;@implementation&lt;/span&gt; &lt;span class="nc"&gt;DBMeizi&lt;/span&gt;
+
+&lt;span class="c1"&gt;// Map automatically under_score case to camelCase&lt;/span&gt;
+&lt;span class="k"&gt;+&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;JSONKeyMapper&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nf"&gt;keyMapper&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;JSONKeyMapper&lt;/span&gt; &lt;span class="n"&gt;mapperFromUnderscoreCaseToCamelCase&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="k"&gt;@end&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&amp;emsp;&amp;emsp;接下来还需要一个service类来实现发送网络请求，这里我们用到了&lt;a href="http://blog.devtang.com/blog/2012/02/22/use-gcd/"&gt;Grand Central Dispatch &lt;/a&gt;多线程来实现异步网络请求，代码如下图。其主要思路就是通过向服务器发送url请求获取json数据，并自动映射到数据模型的属性上。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;@implementation&lt;/span&gt; &lt;span class="nc"&gt;DBMeiziService&lt;/span&gt;
+
+&lt;span class="k"&gt;+&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;DBMeiziService&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nf"&gt;sharedService&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;DBMeiziService&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;_sharedInstance&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;dispatch_once_t&lt;/span&gt; &lt;span class="n"&gt;onceToken&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;dispatch_once&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;onceToken&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="o"&gt;^&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;_sharedInstance&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziService&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+
+    &lt;span class="p"&gt;});&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;_sharedInstance&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="k"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nf"&gt;dbMeiziWithCategory:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSUInteger&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;category&lt;/span&gt; &lt;span class="nf"&gt;start:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSUInteger&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;start&lt;/span&gt; &lt;span class="nf"&gt;count:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSUInteger&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;count&lt;/span&gt; &lt;span class="nf"&gt;handler:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;CompletionBlock&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;handler&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;HUD&lt;/span&gt; &lt;span class="n"&gt;showUIBlockingIndicatorWithText&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;Fetching JSON&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="n"&gt;dispatch_async&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dispatch_get_global_queue&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;DISPATCH_QUEUE_PRIORITY_DEFAULT&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt; &lt;span class="o"&gt;^&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;NSDictionary&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;params&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;category&amp;quot;&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;category&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;start&amp;quot;&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;start&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt; &lt;span class="s"&gt;@&amp;quot;count&amp;quot;&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;count&lt;/span&gt;&lt;span class="p"&gt;)};&lt;/span&gt;
+    &lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;url&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSString&lt;/span&gt; &lt;span class="n"&gt;addQueryStringToUrlString&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;kServerAddr&lt;/span&gt; &lt;span class="n"&gt;withDictionary&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;params&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="n"&gt;PPDebug&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;Fetching data from: %@&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;url&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;NSData&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSData&lt;/span&gt; &lt;span class="n"&gt;dataWithContentsOfURL&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSURL&lt;/span&gt; &lt;span class="n"&gt;URLWithString&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;url&lt;/span&gt;&lt;span class="p"&gt;]];&lt;/span&gt;
+    &lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;json&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;items&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;json&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSJSONSerialization&lt;/span&gt; &lt;span class="n"&gt;JSONObjectWithData&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt; &lt;span class="n"&gt;options&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;kNilOptions&lt;/span&gt; &lt;span class="n"&gt;error&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="nb"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+        &lt;span class="n"&gt;items&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;DBMeizi&lt;/span&gt; &lt;span class="n"&gt;arrayOfModelsFromDictionaries&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;json&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+        &lt;span class="n"&gt;PPDebug&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;Result count: %d&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;items&lt;/span&gt; &lt;span class="n"&gt;count&lt;/span&gt;&lt;span class="p"&gt;]);&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="n"&gt;dispatch_async&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;dispatch_get_main_queue&lt;/span&gt;&lt;span class="p"&gt;(),&lt;/span&gt; &lt;span class="o"&gt;^&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;HUD&lt;/span&gt; &lt;span class="n"&gt;hideUIBlockingIndicator&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;handler&lt;/span&gt; &lt;span class="o"&gt;!=&lt;/span&gt; &lt;span class="nb"&gt;NULL&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+            &lt;span class="n"&gt;handler&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;items&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="p"&gt;});&lt;/span&gt;
+&lt;span class="p"&gt;});&lt;/span&gt;
+
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="k"&gt;@end&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&amp;emsp;&amp;emsp;定义好了数据模型和网络请求方法，接下来就可以在视图控制器类中调用了，代码如下图所示。其思路就是将通过网络请求获得的数据赋值给视图控制器的数据模型，让UICollectionViewController的delegate方法显示图片和文字。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="k"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nf"&gt;viewDidAppear:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;BOOL&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;animated&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+     &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;DBMeiziService&lt;/span&gt; &lt;span class="n"&gt;sharedService&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;dbMeiziWithCategory&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;category&lt;/span&gt; &lt;span class="n"&gt;start&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="n"&gt;count&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;fetchSize&lt;/span&gt; &lt;span class="n"&gt;handler&lt;/span&gt;&lt;span class="o"&gt;:^&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;dataList&lt;/span&gt;&lt;span class="p"&gt;){&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;dataList&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="n"&gt;arrayWithArray&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;dataList&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="n"&gt;PPDebug&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;dataList count %d&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;dataList&lt;/span&gt; &lt;span class="n"&gt;count&lt;/span&gt;&lt;span class="p"&gt;]);&lt;/span&gt;
+
+    &lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;imageList&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;nameList&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;DBMeizi&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;meizi&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="n"&gt;dataList&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;imageList&lt;/span&gt; &lt;span class="n"&gt;addObject&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;meizi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;img&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+        &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;nameList&lt;/span&gt; &lt;span class="n"&gt;addObject&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;meizi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;imageUrls&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="n"&gt;arrayWithArray&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;imageList&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;names&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NSMutableArray&lt;/span&gt; &lt;span class="n"&gt;arrayWithArray&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;nameList&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt; &lt;span class="n"&gt;refresh&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="nb"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="p"&gt;}];&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="cp"&gt;#pragma mark - UICollectionViewDelegate methods&lt;/span&gt;
+&lt;span class="k"&gt;-&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="nf"&gt;collectionView:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;UICollectionView&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;collectionView&lt;/span&gt; &lt;span class="nf"&gt;didSelectItemAtIndexPath:&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;NSIndexPath&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="nv"&gt;indexPath&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;DBMeizi&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;meizi&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;dataList&lt;/span&gt; &lt;span class="n"&gt;objectAtIndex&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;indexPath&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;row&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="n"&gt;SVWebViewController&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;webViewController&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[[&lt;/span&gt;&lt;span class="n"&gt;SVWebViewController&lt;/span&gt; &lt;span class="n"&gt;alloc&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;initWithAddress&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="n"&gt;meizi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;topic&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+    &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;navigationController&lt;/span&gt; &lt;span class="n"&gt;pushViewController&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;webViewController&lt;/span&gt; &lt;span class="n"&gt;animated&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="nb"&gt;YES&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&amp;emsp;&amp;emsp;完成上面的步骤后，重新run一下程序，自然会看到期待已久的豆瓣妹纸啦。&lt;/p&gt;
+&lt;p&gt;&lt;img alt="dbmeizi_main" src="../images/dbmeizi_main.jpg" /&gt;&lt;/p&gt;
+&lt;p&gt;最后，附上以上程序的源码：https://github.com/Kaibin/dbmeizi&lt;/p&gt;</summary><category term="iOS"></category></entry><entry><title>Java中的volatile和synchronized关键字</title><link href="/posts/java_synchronize.html" rel="alternate"></link><updated>2014-02-12T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-02-12:posts/java_synchronize.html</id><summary type="html">&lt;p&gt;Java线程同步包括线程之间的交互通信和互斥，线程之间的通信由Java内存模型（JMM）控制，JMM决定一个线程对共享变量的写入何时对另一个线程可见。Java内存模型的抽象示意图如下：
+&lt;img alt="JMM" src="../images/JMM.png" /&gt;
+这张图告诉我们，Java线程运行的时候，线程本地内存和主内存之间有一个变量同步的过程，这就导致线程中变量的值何时同步回主内存是不可预期的。
+从java源代码到最终实际执行的指令序列，会分别经历下面三种重排序：
+&lt;img alt="ReSort" src="../images/ReSort.png" /&gt;&lt;/p&gt;
+&lt;p&gt;1属于编译器重排序，2和3属于处理器重排序。可见编译器生成的指令顺序和真正在CPU执行的顺序可能是不一致的。这些重排序都可能会导致多线程程序出现内存可见性问题。
+对于编译器优化的重排序，可以通过在Java语言中为变量加上“volatile”强制告诉编译器这个变量一定要从内存获得，这时编译器即不会做此类优化。&lt;/p&gt;
+&lt;p&gt;Java内存模型提供了两个关键词“synchronized”和“volatile”，让Java保证某些约束：&lt;/p&gt;
+&lt;p&gt;volatile: 保证所有线程读写的都是主内存的变量并且不缓存它，只保证可见性，不保证原子性。关于Volatile的实现原理，可点击&lt;a href="http://www.infoq.com/cn/articles/ftf-java-volatile"&gt;这里&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;synchronized: Java提供的用来支持原子性的内置锁机制，保证在同一时刻，只有一个线程可以执行某个方法或代码块。Java中的每个对象都有一个monitor(锁标记)，当线程拥有这个锁标记时才能访问这个资源。synchronized作用于方法时，锁住的是对象的实例(this)，当作用于静态方法时，锁住的是Class实例，用sychronized修饰的方法或者语句块在代码执行完之后锁自动释放。&lt;/p&gt;
+&lt;p&gt;把代码块声明为 synchronized，该代码块就就具有原子性（atomicity和可见性（visibility）。&lt;/p&gt;
+&lt;p&gt;原子性: 意味着个时刻，只有一个线程能够执行一段代码，这段代码通过一个monitor 
+object保护。从而防止多个线程在更新共享状态时相互冲突。下面举一个线程计数器的例子：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;Counter&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;counter&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="nf"&gt;increment&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;counter&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;以上代码中，由于counter++操作不是原子性的，实际上包含”读取--修改--写入“三个独立的操作，是一个操作序列，所以increment方法并不是线程安全的。当给方法加上synchronized关键字后，Counter类的Class对象会被锁定，这样方法就是线程安全的了。
+另一个使得计数器线程安全的例子，是通过使用java.util.concurrent.atomic中的AtomicInteger:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;AtomicCounter&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;AtomicInteger&lt;/span&gt; &lt;span class="n"&gt;counter&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;AutomicInteger&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="nf"&gt;increment&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;counter&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;getAndIncrement&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可见性: 确保一个线程释放锁之前对共享数据做出的更改对于随后获得该锁的另一个线程是可见的。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;StopThread&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;boolean&lt;/span&gt; &lt;span class="n"&gt;stopFlag&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="p"&gt;[]&lt;/span&gt; &lt;span class="n"&gt;args&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;Throws&lt;/span&gt; &lt;span class="n"&gt;Exception&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;Thread&lt;/span&gt; &lt;span class="n"&gt;backgroundThread&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Thread&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Runnable&lt;/span&gt;&lt;span class="p"&gt;(){&lt;/span&gt;
+            &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+            &lt;span class="p"&gt;{&lt;/span&gt;
+                &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+                &lt;span class="k"&gt;while&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="n"&gt;stop&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+                    &lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+                &lt;span class="p"&gt;}&lt;/span&gt;
+            &lt;span class="p"&gt;}&lt;/span&gt;
+        &lt;span class="p"&gt;});&lt;/span&gt;
+        &lt;span class="n"&gt;backgroundThread&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;start&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+
+        &lt;span class="n"&gt;TimeUnit&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;SECONDS&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sleep&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;true&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;上面的例子，由于没有同步，不能保证后台线程何时看到主线程对stop值所做的改变，导致后台线程永远循环！因此就需要对stop变量进行同步访问控制。
+第一种同步方式就是使用synchronized关键字，对stop变量提供同步的读和写方法:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;StopThread&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;boolean&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;synchronized&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;setStop&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nb"&gt;true&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;synchronized&lt;/span&gt; &lt;span class="n"&gt;boolean&lt;/span&gt; &lt;span class="nf"&gt;isStop&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+    &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="p"&gt;[]&lt;/span&gt; &lt;span class="n"&gt;args&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;Throws&lt;/span&gt; &lt;span class="n"&gt;Exception&lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="n"&gt;Thread&lt;/span&gt; &lt;span class="n"&gt;backgroundThread&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Thread&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Runnable&lt;/span&gt;&lt;span class="p"&gt;(){&lt;/span&gt;
+            &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+            &lt;span class="p"&gt;{&lt;/span&gt;
+                &lt;span class="kt"&gt;int&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+                &lt;span class="k"&gt;while&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="n"&gt;isStop&lt;/span&gt;&lt;span class="p"&gt;())&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+                    &lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;++&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+                &lt;span class="p"&gt;}&lt;/span&gt;
+            &lt;span class="p"&gt;}&lt;/span&gt;
+        &lt;span class="p"&gt;});&lt;/span&gt;
+        &lt;span class="n"&gt;backgroundThread&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;start&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+
+        &lt;span class="n"&gt;TimeUnit&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;SECONDS&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sleep&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="n"&gt;setStop&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;第二种同步方式就是将stop变量声明为volatile，这样就保证了任何一个线程在读取该变量值时都将看到最新被写入的值。&lt;/p&gt;</summary><category term="Java"></category></entry><entry><title>Python之装饰器</title><link href="/posts/python_decorator.html" rel="alternate"></link><updated>2014-02-06T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-02-06:posts/python_decorator.html</id><summary type="html">&lt;p&gt;装饰器（Decorator）是一种设计模式，其作用是为已经存在的对象添加额外的功能，如日志、事务处理等。
+python作为一种优雅的语言，学会使用其装饰器是一种魔法，装饰器其实也是一个函数，以被装饰的函数作为参数，返回一个修改后的函数对象，并将其赋予原来函数的标示符。&lt;/p&gt;
+&lt;h2&gt;1. 无参数装饰器&lt;/h2&gt;
+&lt;p&gt;先看下面的例子：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;in&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;foo()是一个普通的函数，再定义一个装饰器函数对foo函数进行包装,对foo()函数进行日志打印。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;dec&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;wrapper&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;     &lt;span class="err"&gt;#定义一个内嵌的包装函数，给传入的函数加上日志功能&lt;/span&gt;
+           &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;before&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;
+           &lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+           &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;after&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;
+      &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;wrapper&lt;/span&gt;     &lt;span class="err"&gt;#返回内嵌的函数名&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;以上dec函数就是一个装饰器，它的参数就是被装饰的函数，并返回一个函数对象。
+这样，当进行以下操作时：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;foo&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;dec&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;dec(foo)将返回的函数名赋值给foo,这样foo函数就是被装饰过的了，将具有日志功能。&lt;/p&gt;
+&lt;h2&gt;2. 语法糖：&lt;/h2&gt;
+&lt;p&gt;python针对装饰器提供了一个语法糖来降低字符输入量，这样以上代码可以写成:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;dec&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;          
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;wrapper&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;     
+           &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;before&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;               
+           &lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;               
+           &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;after&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;  
+      &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;wrapper&lt;/span&gt;
+
+ &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;dec&lt;/span&gt;
+ &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;     
+      &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;in&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;注意以上代码出的@dec，这一行完全等价于foo = dec(foo)，并无其它。&lt;/p&gt;
+&lt;h2&gt;3. 带参数装饰器:&lt;/h2&gt;
+&lt;p&gt;以上的装饰器函数自己本身并不带有参数，如果装饰器函数自己本身就有参数，那该如何定义呢？
+下面演示一下带参数的装饰器函数，例子：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;deco&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;arg&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;                 &lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="n"&gt;arg&lt;/span&gt;&lt;span class="err"&gt;参数用来加强装饰&lt;/span&gt;  
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;newDeco&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;        &lt;span class="err"&gt;#定义一个内嵌的&lt;/span&gt;&lt;span class="n"&gt;decorator&lt;/span&gt;&lt;span class="err"&gt;函数&lt;/span&gt;
+           &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;arg&lt;/span&gt;
+           &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;func&lt;/span&gt;
+      &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;newDeco&lt;/span&gt;
+
+ &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;deco&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;demo_args&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;              &lt;span class="err"&gt;#使用语法糖，等价于&lt;/span&gt;&lt;span class="n"&gt;foo&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;deco&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;demo_args&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+ &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="n"&gt;pass&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;上面的带有参数的装饰器函数deco在调用时只使用自身的参数arg，而不接收被装饰的函数作为参数，所以必须在其内部在创建一个函数，用于接收被装饰的函数，并且最后返回这个内嵌的函数。       &lt;/p&gt;
+&lt;h2&gt;4. 一个更复杂的装饰器&lt;/h2&gt;
+&lt;p&gt;上面的带参数装饰器并没有考虑foo函数带有参数的情况，下面演示一下这一情况：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;decorator&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;arg&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;newDec&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+           &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;anotherDec&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+                &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;
+                &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;another&lt;/span&gt;
+           &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Dec&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;使用示例：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;decorator&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;hello&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+           &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;foo&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="n"&gt;is&lt;/span&gt; &lt;span class="n"&gt;called&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;由上可以看到，anotherDec函数有一个参数self，改参数就是foo的参数self。
+可以总结装饰器嵌套函数的参数传递过程如下：
+首先将'hello'参数传递给decorator函数，然后将被装饰的foo函数对象作为参数传递给newDec嵌套函数，最后将被装饰函数foo的参数self作为参数传递给下一层的嵌套函数anotherDec。&lt;/p&gt;
+&lt;h2&gt;5. 类装饰器&lt;/h2&gt;
+&lt;p&gt;前面介绍了装饰器函数的调用，实际上装饰器也可以定义成实现了__call__方法的class。
+我们知道，通过__call__方法，python中的类也是可以调用的。
+下面的例子：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;A&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;__init__&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+           &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;func&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;func&lt;/span&gt;
+      &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;__call__&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+           &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;self&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;func&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;20&lt;/span&gt;
+
+ &lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;A&lt;/span&gt;          &lt;span class="err"&gt;#装饰完成之后&lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;A&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+ &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="mi"&gt;10&lt;/span&gt;
+
+ &lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;b&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+      &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="mi"&gt;30&lt;/span&gt;
+
+ &lt;span class="n"&gt;c&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;A&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;     &lt;span class="err"&gt;#等价于&lt;/span&gt; &lt;span class="n"&gt;c&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;A&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;A&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;)),&lt;/span&gt; &lt;span class="n"&gt;so&lt;/span&gt; &lt;span class="n"&gt;c&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;10&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;
+ &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="n"&gt;c&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+
+ &lt;span class="n"&gt;d&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;A&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;b&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;     &lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="mi"&gt;30&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;
+ &lt;span class="n"&gt;print&lt;/span&gt; &lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;例子中,class A以被装饰的函数作为构造参数，即构造函数为A(a)&lt;/p&gt;
+&lt;p&gt;参考文献:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;http://jnotes.googlecode.com/svn/trunk/Notes/NotesOnPythonLearning/Python_decorator.html&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;http://guangboo.iteye.com/blog/512825&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;http://blog.csdn.net/thy38/article/details/4471421&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;http://www.cnblogs.com/huxi/archive/2011/03/01/1967600.html&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;</summary><category term="Python"></category></entry><entry><title>JavaScript中的prototype和__proto__属性</title><link href="/posts/javaScript_prototype.html" rel="alternate"></link><updated>2014-01-12T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-01-12:posts/javaScript_prototype.html</id><summary type="html">&lt;p&gt;在传统的面向对象的语言（C++/Java/C#等）中，都包含类的继承机制，因此类自然是作为一等公民存在。JavaScript虽然也是一种面向对象的语言，但却没有引入“类”（class）的概念，自然也就没有类继承机制，JavaScript使用的是一种叫做原型链（prototype chain）的模型来代替类继承机制，并让函数充当了类的构造函数的作用，函数可以做到像简单值一样赋值、传参、返回，函数在JavaScript自然一跃成为一等公民。关于&lt;a href="http://www.ruanyifeng.com/blog/2011/06/designing_ideas_of_inheritance_mechanism_in_javascript.html"&gt;Javascript继承机制的设计思想&lt;/a&gt;，可以详看阮一峰博客的这篇文章。&lt;/p&gt;
+&lt;p&gt;任何函数，只要通过new操作符调用，那么该函数就称为构造函数，当调用构造函数创建一个新的实例对象后，该实例的内部将包含一个__proto__属性，用于指向构造函数的原型对象。&lt;/p&gt;
+&lt;p&gt;JavaScript中的每一个函数，都有一个prototype属性，它用于指向一个对象，该对象用来记录一个方法和属性的集合，这个对象就是通过调用构造函数而创建的实例对象的原型对象。&lt;/p&gt;
+&lt;p&gt;上面两句话分别就是对__proto__和prototype属性的定义了，具体可以参见下面这张&lt;a href="http://dmitrysoshnikov.com/ecmascript/javascript-the-core/"&gt;图&lt;/a&gt;：
+&lt;img alt="prototype" src="/images/prototype.png" /&gt;&lt;/p&gt;
+&lt;p&gt;图中Foo是一个JavaScript函数，而a和b则是由new Foo()这个构造函数创建的。&lt;/p&gt;
+&lt;p&gt;从图中我们可以看到，当我们用 new 关键字创建一个新的实例时，新对象的 &lt;strong&gt;proto&lt;/strong&gt; 将会被赋值为InstanceClass.prototype。也就是说，有这样一个关系：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;Instance&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;__proto__&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;InstanceClass&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;prototype&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;同时，由于在JavaScript中，每个函数都是一个Function类型的实例(instance)，因此Foo的__proto__属性自然就是指向
+Function.prototype了。&lt;/p&gt;</summary><category term="JavaScript"></category></entry><entry><title>使用Nginx和uWSGI部署Flask应用</title><link href="/posts/deploy_flask_web.html" rel="alternate"></link><updated>2014-01-06T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2014-01-06:posts/deploy_flask_web.html</id><summary type="html">&lt;p&gt;用python写的web应用部署到服务器环境，不像php或者java那样简单直接把php文件或java文件扔进apache或tomcat的web目录就可以。这里简单介绍一下在CentOS 5.4 下配置nginx和uWSGI服务器来部署Flask web应用程序。&lt;/p&gt;
+&lt;h2&gt;1. 安装ngnix&lt;/h2&gt;
+&lt;p&gt;nginx是高性能的HTTP和反向代理服务器，CentOS没有默认的Nginx软件包，需要先导入源：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;rpm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Uvh&lt;/span&gt; &lt;span class="n"&gt;http&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="c1"&gt;//centos.alt.ru/repository/centos/5/i386/centalt-release-5-3.noarch.rpm&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;接下来yum安装nginx,添加到启动项并启动nginx(监听80端口)&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;yum&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;nginx&lt;/span&gt;
+&lt;span class="n"&gt;chkconfig&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;levels&lt;/span&gt; &lt;span class="mi"&gt;235&lt;/span&gt; &lt;span class="n"&gt;nginx&lt;/span&gt; &lt;span class="n"&gt;on&lt;/span&gt;
+&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginx&lt;/span&gt; &lt;span class="n"&gt;start&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;默认nginx配置文件: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginx&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginx&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;默认nginx的虚拟主机配置文件: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginx&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtual&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;默认的web_root文件夹路径: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;share&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginx&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;html&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;2. 安装uwsgi应用服务器&lt;/h2&gt;
+&lt;p&gt;uWSGI既是一个协议也是一个服务器。如果作为一个服务器， 它可以服务于uWSGI, FastCGI 和 HTTP 协议。
+最流行的 uWSGI 服务器是 &lt;a href="http://projects.unbit.it/uwsgi/"&gt;uwsgi&lt;/a&gt; &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;pip&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;uwsgi&lt;/span&gt;
+&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;uwsgi&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;version&lt;/span&gt;  &lt;span class="err"&gt;#查看版本信息&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;3. 在nginx配置uwsgi：&lt;/h2&gt;
+&lt;p&gt;在/etc/nginx/nginx.conf中找到server配置，修改如下：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;location&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;include&lt;/span&gt; &lt;span class="n"&gt;uwsgi_params&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;uwsgi_pass&lt;/span&gt; &lt;span class="mf"&gt;127.0.0.1&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;9003&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;root&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;opt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;web&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;test&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;index&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;html&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;htm&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;以上配置就是将所有url传给9093端口的uwsgi协议程序。
+nginx默认监听80端口与apache一样，可以修改监听端口，只需将listen 80改为listen 8088。&lt;/p&gt;
+&lt;h2&gt;4. 安装Flask web框架&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;pip&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;flask&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;在/opt/web/test目录下新建myapp.py:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;from&lt;/span&gt; &lt;span class="n"&gt;flask&lt;/span&gt; &lt;span class="n"&gt;import&lt;/span&gt; &lt;span class="n"&gt;Flask&lt;/span&gt;
+&lt;span class="n"&gt;app&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;Flask&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;__name__&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;app&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;debug&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;True&lt;/span&gt;
+
+
+&lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;app&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;route&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="sc"&gt;&amp;#39;/&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;def&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;Hello&lt;/span&gt; &lt;span class="n"&gt;World&lt;/span&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;
+
+&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="n"&gt;__name__&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="n"&gt;__main__&lt;/span&gt;&lt;span class="err"&gt;&amp;#39;&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;
+    &lt;span class="n"&gt;app&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;5. 启动uwsgi服务器&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;uwsgi&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;socket&lt;/span&gt; &lt;span class="mf"&gt;127.0.0.1&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;9003&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;M&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;t&lt;/span&gt; &lt;span class="mi"&gt;30&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;R&lt;/span&gt; &lt;span class="mi"&gt;10000&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;vhost&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;pythonpath&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;opt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;web&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;test&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;module&lt;/span&gt; &lt;span class="n"&gt;myapp&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;app&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;uwsgi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;log&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;pidfile&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;tmp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;uwsgi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;pid&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;ul&gt;
+    &lt;li&gt;-p 4 表示预生成 4 个 worker 子进程&lt;/li&gt;
+    &lt;li&gt;-t 30 是 cgi 程序超时&lt;/li&gt;
+    &lt;li&gt;-R 10000 表示每个 worker 处理的最大请求数&lt;/li&gt;
+    &lt;li&gt;--vhost 表示启用虚拟服务器&lt;/li&gt;
+    &lt;li&gt;-d /tmp/uwsgi.log 表示以守护进程方式启动，指定日志文件&lt;/li&gt;
+    &lt;li&gt;--pidfile 指定pid存储文件&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;
+&lt;h2&gt;6. 重启nginx服务&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginx&lt;/span&gt; &lt;span class="n"&gt;restart&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;7. 打开浏览器，输入 http://127.0.0.0:8080 即可看到“Hello World!"&lt;/h2&gt;
+&lt;h2&gt;8. 停止服务&lt;/h2&gt;
+&lt;p&gt;uwsgi重新载入：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;kill&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;SIGHUP&lt;/span&gt; &lt;span class="err"&gt;`&lt;/span&gt;&lt;span class="n"&gt;cat&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;tmp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;uwsgi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;pid&lt;/span&gt;&lt;span class="err"&gt;`&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;uwsgi停止：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;kill&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;SIGINT&lt;/span&gt; &lt;span class="err"&gt;`&lt;/span&gt;&lt;span class="n"&gt;cat&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;tmp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;uwsgi&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;pid&lt;/span&gt;&lt;span class="err"&gt;`&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;当有多个Flask web应用需要部署时，只需重复第3步，在nginx中相应的多配置server及其转发的uwsgi应用，并按第5步启动多个uwsgi服务器即可。注意多个Flask对应的uwsgi端口必须不一样，nginx监听的server端口也不一样。&lt;/p&gt;</summary><category term="Python"></category></entry><entry><title>Maven的依赖管理机制</title><link href="/posts/maven_dependency.html" rel="alternate"></link><updated>2013-12-06T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-12-06:posts/maven_dependency.html</id><summary type="html">&lt;p&gt;&lt;a href="http://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#System_Dependencies"&gt;依赖管理&lt;/a&gt;是Maven的一项强大功能，在单模块的项目中使用依赖管理相当简单，但是大项目一般会分成几个子项目，每个子项目就会有自己的POM 文件，然后它们会有一个共同的父项目，这样在管理多模块的大项目时，弄清楚模块间的依赖管理机制，对维护整个项目稳定性就显得相当重要了。&lt;/p&gt;
+&lt;p&gt;这里首先介绍一下Maven中坐标的概念，在POM中，groupId, artifactId, packaging, version 叫作 Maven 坐标，它能唯一的确定一个项目，因此我们可以用它来解决依赖关系。
+Maven的依赖管理机制包括以下三个方面：
+&lt;ul&gt;
+    &lt;li&gt;依赖传递&lt;/li&gt;
+    &lt;li&gt;依赖管理&lt;/li&gt;
+    &lt;li&gt;依赖范围&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;
+&lt;h2&gt;依赖传递&lt;/h2&gt;
+&lt;p&gt;这是Maven2.0的一个新特性，指的是说依赖能够自动继承和传递，类似于yum和apt-get等linux的包管理机制，自动解析依赖关系。例如module A依赖module B的artifact b，而module B依赖于module C的artifact c，那么在build module A时，A的依赖中就会自动出现B和C。
+由于这种可传递的依赖，会导致两个问题：
+&lt;ul&gt;
+    &lt;li&gt;依赖树变得很庞大&lt;/li&gt;例如A -&amp;gt; B -&amp;gt; C -&amp;gt; D -&amp;gt; E...
+    &lt;li&gt;出现死循环依赖&lt;/li&gt;例如A -&amp;gt; B -&amp;gt; C -&amp;gt; D -&amp;gt; B
+&lt;/ul&gt;
+因此，还需要其它方式来限制要包括的依赖。&lt;/p&gt;
+&lt;h2&gt;依赖管理&lt;/h2&gt;
+&lt;p&gt;&lt;ul&gt;
+    &lt;li&gt;依赖调停 &lt;/li&gt;
+    这是为了解决在依赖树上当同一个artifact出现多个版本时的版本选择问题。目前，Maven2.0只支持"nearest definition"，即近亲原则，而不是不是以version越大越保留，就是说选择在依赖树里最靠近你的项目的artifact版本。
+    例如当出现：A -&amp;gt; B -&amp;gt; C -&amp;gt; D 2.0和A -&amp;gt; E -&amp;gt; D 1.0, 那么D的1.0版本将会被使用，因为从A通过E到达D的路径是最短的。这种情况下，如果硬是要A使用D的2.0版本,可以在A里显式设置对D的依赖版本为2.0。
+    如果依赖深度一样时则按出现的顺序选择，例如A -&amp;gt; B -&amp;gt; C1.0， A -&amp;gt; D -&amp;gt; C2.0,那么在Maven2.0.9版本之后依照“先到先得”原则，出现在前面的C1.0将被选择。
+    &lt;li&gt;依赖管理&lt;/li&gt;
+    依赖管理就是在POM文件里添加&lt;dependencyManagement&gt;元素,并在里面设置要使用的depedency的版本号，这样dependencyManagement里面定义的版本号就会优先于依赖调停 的版本号，
+    可以通过mvn dependency:tree来查看项目依赖。
+    &lt;li&gt;依赖排除&lt;/li&gt;
+    如果X -&amp;gt; Y -&amp;gt; Z，可以在X的exclusion元素中声明不依赖Z。
+    例如当出现A-&amp;gt;B-&amp;gt;C-&amp;gt;D-&amp;gt;B依赖死循环时，就可以在D的exclusion元素中声明不依赖B。
+&lt;/ul&gt;&lt;/p&gt;
+&lt;h2&gt;依赖范围&lt;/h2&gt;
+&lt;p&gt;依赖范围注意用于限制依赖传递和管理依赖的部署。目前有以下6个范围值：
+&lt;ul&gt;
+    &lt;li&gt;compile&lt;/li&gt;默认值，在编译的时候需要什么依赖就给你添加什么jar，jar包会随着项目一起发布。
+    &lt;li&gt;provided&lt;/li&gt;期望JDK、容器或使用者会提供这个依赖，发布的时候不包含该jar，这种scope的jar不会被传递。
+    &lt;li&gt;runtime&lt;/li&gt;只在运行时使用，如JDBC驱动，适用运行和测试阶段。
+    &lt;li&gt;test&lt;/li&gt;只在测试时使用，用于编译和运行测试代码。不会随项目发布。
+    &lt;li&gt;system&lt;/li&gt;类似provided，需要显式提供包含依赖的jar，Maven不会在Repository中查找它，需要指定&lt;systemPath&gt;查找路径。
+    &lt;li&gt;import&lt;/li&gt;用于从dependencyManagement中导入依赖。 
+&lt;/ul&gt;&lt;/p&gt;</summary><category term="Java"></category></entry><entry><title>JAX-WS-WebService开发入门</title><link href="/posts/jax_webservice.html" rel="alternate"></link><updated>2013-10-01T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-10-01:posts/jax_webservice.html</id><summary type="html">&lt;p&gt;&amp;emsp;&amp;emsp;遵循&lt;a href="https://jcp.org/aboutJava/communityprocess/final/jsr224/index.html"&gt;JCP JAX-WS 2.0 API&lt;/a&gt;规范，可以按照以下步骤进行WebService开发
+&lt;ul&gt;
+  &lt;li&gt;定义服务端点接口类（Server Endpoint Interface）&lt;/li&gt;
+  &lt;li&gt;给接口添加注解&lt;/li&gt;
+  &lt;li&gt;发布webserive服务&lt;/li&gt;
+  &lt;li&gt;开发客户端&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;
+&lt;h2&gt;SEI(Server Endpoint Interface)定义&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;package&lt;/span&gt; &lt;span class="n"&gt;com&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;demo&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;order&lt;/span&gt;
+&lt;span class="cp"&gt;#定义POJO接口&lt;/span&gt;
+&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;interface&lt;/span&gt; &lt;span class="n"&gt;OrderProcess&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+   &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;processOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;Order&lt;/span&gt; &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="cp"&gt;#OrderProcessImpl实现接口processOrder的方法, 作为Webservice方法暴露&lt;/span&gt;
+&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;OrderProcessImpl&lt;/span&gt; &lt;span class="n"&gt;implements&lt;/span&gt; &lt;span class="n"&gt;OrderProcess&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+  &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;processOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;Order&lt;/span&gt; &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;out&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;println&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;Processing order...&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;orderID&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;validate&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;orderID&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+  &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;添加WebService注解&lt;/h2&gt;
+&lt;p&gt;基于 XML 的 Web Service 的 Java API&lt;a href="http://pic.dhe.ibm.com/infocenter/wasinfo/v6r1/index.jsp?topic=%2Fcom.ibm.websphere.wsfep.multiplatform.doc%2Finfo%2Fae%2Fae%2Frwbs_jaxwsannotations.html&amp;amp;lang%3Dzh_CN"&gt;（JAX-WS）&lt;/a&gt;通过使用注释来指定与 Web Service 实现相关联的元数据以及简化 Web Service 的开发。通过使用符合 JSR 181 标准的注释，可以简单地注释服务实现类或服务接口，将应用程序作为 Web Service 来启用。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;import&lt;/span&gt; &lt;span class="n"&gt;javax&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jws&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;WebService&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;WebService&lt;/span&gt;
+&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;interface&lt;/span&gt; &lt;span class="n"&gt;OrderProcess&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+   &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;processOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;Order&lt;/span&gt; &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="err"&gt;@&lt;/span&gt;&lt;span class="n"&gt;WebService&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;endpointInterface&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;com.demo.order.OrderProcess&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;serviceName&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OrderProcessService&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;portName&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;OrderProcessPort&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;OrderProcessImpl&lt;/span&gt; &lt;span class="n"&gt;implements&lt;/span&gt; &lt;span class="n"&gt;OrderProcess&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+  &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;processOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;Order&lt;/span&gt; &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;out&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;println&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;Processing order...&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;orderID&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;validate&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;orderID&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+  &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;ul&gt;
+&lt;li&gt;endpointInterface指定用于定义服务的抽象 Web Service 约定的服务端点接口的限定名，非必须。&lt;/li&gt;
+&lt;li&gt;serviceName指定 Web Service 的服务名称：wsdl:service。用作客户端用户获取远端接口存根，调用服务方法。缺省值为 Java 类的简单名称 + Service。&lt;/li&gt;
+&lt;li&gt;portName指定服务端点的名称：wsdl:portName。缺省值为 WebService.name+Port。&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;
+&lt;h2&gt;发布服务&lt;/h2&gt;
+&lt;p&gt;发布服务就是将Webservice服务组件注册到服务器中，之后客户端就可以通过endpoint URL访问该Webservice服务了。OrderProcess将通过一个唯一的endpoint URL（例如http://localhost:8080/OrderProcess） 发布服务。这里使用Java 5提供的轻量级web server作为例子。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;import&lt;/span&gt; &lt;span class="n"&gt;javax&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;xml&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;ws&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;Endpoint&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;Server&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+   &lt;span class="n"&gt;protected&lt;/span&gt; &lt;span class="n"&gt;Server&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="n"&gt;throws&lt;/span&gt; &lt;span class="n"&gt;Exception&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+       &lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;out&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;println&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;Starting Server&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;OrderProcessImpl&lt;/span&gt; &lt;span class="n"&gt;orderProcessImpl&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;OrderProcessImpl&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+       &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;address&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;http://localhost:8080/OrderProcess&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+       &lt;span class="n"&gt;Endpoint&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;publish&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;address&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;orderProcessImpl&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+   &lt;span class="p"&gt;}&lt;/span&gt;
+  &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="n"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="p"&gt;[]&lt;/span&gt; &lt;span class="n"&gt;args&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Server&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+    &lt;span class="n"&gt;Thread&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sleep&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;50000&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;exit&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+  &lt;span class="p"&gt;}&lt;/span&gt; 
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Web Service创建成功之后，就可以查看通过 http://localhost:8080/OrderProcess?wsdl 查看服务的WSDL文档了。&lt;/p&gt;
+&lt;h2&gt;开发客户端&lt;/h2&gt;
+&lt;p&gt;客户端调用Webservice方法获得结果。下面的代码开发了一个客户端类调用OrderProcess Webservice的processOrder方法。 &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="n"&gt;class&lt;/span&gt; &lt;span class="n"&gt;Client&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+   &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;final&lt;/span&gt; &lt;span class="n"&gt;QName&lt;/span&gt; &lt;span class="n"&gt;SERVICE_URI&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;http://order.demo.com/&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+   &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;final&lt;/span&gt; &lt;span class="n"&gt;QName&lt;/span&gt; &lt;span class="n"&gt;SERVICE_NAME&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;QName&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;SERVICE_URI&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;OrderProcessService&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+   &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;final&lt;/span&gt; &lt;span class="n"&gt;QName&lt;/span&gt; &lt;span class="n"&gt;PORT_NAME&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;QName&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;SERVICE_URI&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;OrderProcessPort&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+   &lt;span class="n"&gt;private&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="n"&gt;final&lt;/span&gt; &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;WSDL_LOCATION&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;http://localhost:8080/OrderProcess?wsdl&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+   &lt;span class="n"&gt;public&lt;/span&gt; &lt;span class="k"&gt;static&lt;/span&gt; &lt;span class="kt"&gt;void&lt;/span&gt; &lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;args&lt;/span&gt;&lt;span class="p"&gt;[])&lt;/span&gt; &lt;span class="n"&gt;throws&lt;/span&gt; &lt;span class="n"&gt;Exception&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+       &lt;span class="n"&gt;URL&lt;/span&gt; &lt;span class="n"&gt;wsdlURL&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;URL&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;WSDL_LOCATION&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;Service&lt;/span&gt; &lt;span class="n"&gt;service&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;Service&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;create&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;wsdlURL&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;SERVICE_NAME&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;OrderProcess&lt;/span&gt; &lt;span class="n"&gt;port&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;service&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;getPort&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;PORT_NAME&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+       &lt;span class="n"&gt;OrderProcess&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;class&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;Order&lt;/span&gt; &lt;span class="n"&gt;order&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;new&lt;/span&gt; &lt;span class="n"&gt;Order&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+       &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;setCustomerID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;C001&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;setItemID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;I001&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;setPrice&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;100.00&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;setQty&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;result&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;port&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;processOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;order&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+       &lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;out&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;println&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;The order ID is &amp;quot;&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;result&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="err"&gt;￼&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;从客户端代码可以注意到，
+&lt;ul&gt;
+  &lt;li&gt;QName SERVICE_URI对应于服务端的targetNamespace(默认是包名反转)&lt;/li&gt;
+  &lt;li&gt;QName SERVICE_NAME对应于服务端的serviceName &lt;/li&gt;
+  &lt;li&gt;QName PORT_NAME对应于服务端的portName&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;</summary><category term="Java"></category></entry><entry><title>Solr使用入门</title><link href="/posts/sorl_study.html" rel="alternate"></link><updated>2013-09-02T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-09-02:posts/sorl_study.html</id><summary type="html">&lt;p&gt;&amp;emsp;&amp;emsp;大多数应用程序的数据都是存数在数据库上的，再由前端发起请求向数据库发起查询请求获取数据。当我们需要从大量数据中进行全文检索时，由于数据库索引不是为全文索引设计的，因此，使用like "%keyword%"时，数据库索引是不起作用的，特别是对模糊查询的数据库服务来说，like查询对性能的危害是极大的。因此，我们需要像Solr这样的支持全文索引的索引引擎来完成这项功能。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;Apache Solr (读音: SOLer) 是一个开源的搜索服务器，使用 Java 语言开发，主要基于 HTTP 和 Apache Lucene实现。Solr 需要运行在一个servlet容器里如Jetty或Tomcat，并提供了一个基于Http的Web Service的接口进行交互。&lt;/p&gt;
+&lt;p&gt;&amp;emsp;&amp;emsp;下面介绍如何使用Solr搭建自己的全文检索。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;从官网 (http://lucene.apache.org/solr/) 下载最新版本，solr的发布包包含了一个example，其中附带了一个jetty以便我们快速搭建一个可运行的solr示例，所以只需几行简单的命令将solr跑起来：    &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="n"&gt;solr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;example&lt;/span&gt;
+&lt;span class="n"&gt;java&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="n"&gt;start&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;访问http://localhost:8983/solr/admin/ 即可看到solr的主页面。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;标准安装，将solr安装到tomcat，修改tomcat端口避免与web应用冲突，并将编码改为UTF-8：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;Connector&lt;/span&gt; &lt;span class="n"&gt;port&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;8983&amp;quot;&lt;/span&gt; &lt;span class="n"&gt;protocol&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;HTTP/1.1&amp;quot;&lt;/span&gt;
+        &lt;span class="n"&gt;connectionTimeout&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;20000&amp;quot;&lt;/span&gt;            
+        &lt;span class="n"&gt;redirectPort&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;8443&amp;quot;&lt;/span&gt; &lt;span class="n"&gt;URIEncoding&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;UTF-8&amp;quot;&lt;/span&gt;&lt;span class="o"&gt;/&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;找到apache-solr-4.x.x/dist/apache-solr-4.x.x.war包，复制到tomcat的webapps目录下并修改名字为solr,然后直接启动tomcat，此时tomcat报错，说找不到solrconfig.xml。&lt;/p&gt;
+&lt;p&gt;这是因为solr的平台与配置是相互分离的，我们复制的war包在启动的时候，solr找不到solr.home的配置。解决办法是到tomcat/webapps/solr/WEB-INF/web.xml中，找到一段注释的代码，修改起solr home位置： &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="nt"&gt;&amp;lt;env-entry&amp;gt;&lt;/span&gt;                                                                                                                                                                                 &lt;span class="nt"&gt;&amp;lt;env-entry-name&amp;gt;&lt;/span&gt;solr/home&lt;span class="nt"&gt;&amp;lt;/env-entry-name&amp;gt;&lt;/span&gt;
+&lt;span class="nt"&gt;&amp;lt;env-entry-value&amp;gt;&lt;/span&gt;apache-solr-4.0.0/example/solr&lt;span class="nt"&gt;&amp;lt;/env-entry-value&amp;gt;&lt;/span&gt;                                                                                                                                                                                                                                                                                                                     
+&lt;span class="nt"&gt;&amp;lt;env-entry-type&amp;gt;&lt;/span&gt;java.lang.String&lt;span class="nt"&gt;&amp;lt;/env-entry-type&amp;gt;&lt;/span&gt;                                                                      
+&lt;span class="nt"&gt;&amp;lt;/env-entry&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;观察这个指定的solr.home位置，其collection1目录下存在两个文件夹：conf和data。                                                            &lt;br /&gt;
+其中conf里存放了对solr而言最为重要的两个配置文件schema.xml和solrconfig.xml。                                                           data则用于存放索引文件。  &lt;br /&gt;
+                                                                                                                                                                   schema.xml主要包括types、fields和其他的一些缺省设置。  &lt;br /&gt;
+                                                                                                                                                                                                                      solrconfig.xml用来配置Solr的一些系统属性，例如与索引和查询处理有关的一些常见的配置选项，以及缓存、扩展等等。   &lt;br /&gt;
+                                                                                                                                                                                                                                                                                                                                                                               注意到schema.xml里有一个&lt;uniqueKey &gt; url&lt;/uniqueKey&gt; 的配置，这里将url字段作为索引文档的唯一标识符，非常重要。 &lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;启动tomcat，在linux下运行并打开： http://localhost:8983/solr/admin/ &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;catalina&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sh&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在schema.xml中自定义索引结构。&lt;/p&gt;
+&lt;p&gt;将所有field和dynamicField删除，换成自己的索引字段，最后fields结构如下：&lt;/p&gt;
+&lt;p&gt;其中name为"text" 和"_version"的field 必须有！  &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="nt"&gt;&amp;lt;fields&amp;gt;&lt;/span&gt;
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;id&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;string&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt; 
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;title&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;text_general&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;description&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;text_general&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;content&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;text_general&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;author&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;text_general&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;date&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;date&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;multiValued=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;false&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;text&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;text_general&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;false&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;multiValued=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;_version_&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;type=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;long&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;indexed=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;stored=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+  &lt;span class="nt"&gt;&amp;lt;/fields&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;测试。在solr/example/exampledoc 创建两个 xml 数据文件，分别保存为 demo-doc1.xml 和 demo-doc2.xml：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="cp"&gt;&amp;lt;?xml version=&amp;quot;1.0&amp;quot; encoding=&amp;quot;UTF-8&amp;quot; ?&amp;gt;&lt;/span&gt;  
+       &lt;span class="nt"&gt;&amp;lt;add&amp;gt;&lt;/span&gt;  
+           &lt;span class="nt"&gt;&amp;lt;doc&amp;gt;&lt;/span&gt;  
+                    &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;id&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;1&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+                    &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;author&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;wukaibin&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;
+
+                    &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;title&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;solr 应用演讲&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+                    &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;content&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;这一小节是讲提交数据给服务器做索引&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+                   &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;description&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;solr 应用演讲&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+           &lt;span class="nt"&gt;&amp;lt;/doc&amp;gt;&lt;/span&gt;  
+       &lt;span class="nt"&gt;&amp;lt;/add&amp;gt;&lt;/span&gt;
+
+&lt;span class="cp"&gt;&amp;lt;?xml version=&amp;quot;1.0&amp;quot; encoding=&amp;quot;UTF-8&amp;quot; ?&amp;gt;&lt;/span&gt;  
+       &lt;span class="nt"&gt;&amp;lt;add&amp;gt;&lt;/span&gt;  
+           &lt;span class="nt"&gt;&amp;lt;doc&amp;gt;&lt;/span&gt;  
+              &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;id&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;2&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;author&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;czx&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;title&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;体育运动&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;content&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;你喜欢打羽毛球吗&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;description&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;solr 应用演讲&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+                &lt;span class="nt"&gt;&amp;lt;/doc&amp;gt;&lt;/span&gt;  
+           &lt;span class="nt"&gt;&amp;lt;doc&amp;gt;&lt;/span&gt;
+              &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;id&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;3&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;    
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;author&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;lcc&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;title&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;netease&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+               &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;content&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;你玩游戏吗&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+              &lt;span class="nt"&gt;&amp;lt;field&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;description&amp;quot;&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;solr 应用演讲&lt;span class="nt"&gt;&amp;lt;/field&amp;gt;&lt;/span&gt;  
+           &lt;span class="nt"&gt;&amp;lt;/doc&amp;gt;&lt;/span&gt;  
+       &lt;span class="nt"&gt;&amp;lt;/add&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;然后在exampledoc目录下运行以下命令向solr提交数据作索引：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;java&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Durl&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;http&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="c1"&gt;//localhost:8983/solr/update -Dcommit=yes -jar post.jar demo-doc*.xml&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;提交成功后即可查看搜索结果，以下url即是查看所有内容：     &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="nl"&gt;http:&lt;/span&gt;&lt;span class="c1"&gt;//localhost:8983/solr/select/?q=*%3A*&amp;amp;version=2.2&amp;amp;start=0&amp;amp;rows=10&amp;amp;indent=on&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;清除solr中的数据：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="nl"&gt;http:&lt;/span&gt;&lt;span class="c1"&gt;//localhost:8983/solr/update?stream.body=%3Cdelete%3E%3Cquery%3E*:*%3C/query%3E%3C/delete%3E&amp;amp;commit=true&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4&gt;参考链接：&lt;/h4&gt;
+&lt;ol&gt;
+&lt;li&gt;http://blog.chenlb.com/2009/05/apache-solr-quick-start-and-demo.html&lt;/li&gt;
+&lt;li&gt;http://www.blogjava.net/RongHao/archive/2007/11/06/158621.html&lt;/li&gt;
+&lt;li&gt;http://www.aidansu.com/blog/1361.html&lt;/li&gt;
+&lt;li&gt;http://blog.csdn.net/yangaming/article/details/8197241&lt;/li&gt;
+&lt;/ol&gt;</summary><category term="Java"></category></entry><entry><title>MySQL安装手册</title><link href="/posts/mysql_install.html" rel="alternate"></link><updated>2013-08-06T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-08-06:posts/mysql_install.html</id><summary type="html">&lt;h2&gt;下载&lt;a href="[http://dev.mysql.com/downloads/file.php?id=450891]"&gt;mysql-5.6.16-linux-glibc2.5&lt;/a&gt; 解压到 /usr/local/mysql-5.6.14&lt;/h2&gt;
+&lt;h2&gt;创建MySQL用户及用户组&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;groupadd&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;
+&lt;span class="n"&gt;useradd&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;r&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;g&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;建立软连接&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;5.6.14&lt;/span&gt;  &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;
+&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;chown&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;R&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;把mysql服务的所有权赋予mysql用户：&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;chown&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;R&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;5.6.14&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;安装共享库libaio1&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;apt&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;get&lt;/span&gt; &lt;span class="n"&gt;install&lt;/span&gt; &lt;span class="n"&gt;libaio1&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;开始安装并初始化授权表&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;5.6.14&lt;/span&gt;
+&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;scripts&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql_install_db&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;配置mysql服务&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;support&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;files&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;server&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysqld&lt;/span&gt;
+&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;insserv&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;insserv&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;sbin&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;insserv&lt;/span&gt;
+
+&lt;span class="n"&gt;chkconfig&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;add&lt;/span&gt; &lt;span class="n"&gt;mysqld&lt;/span&gt;
+&lt;span class="n"&gt;chkconfig&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;level&lt;/span&gt; &lt;span class="mi"&gt;2345&lt;/span&gt; &lt;span class="n"&gt;mysqld&lt;/span&gt; &lt;span class="n"&gt;on&lt;/span&gt;  &lt;span class="err"&gt;#设置&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="err"&gt;服务开机启动或关闭&lt;/span&gt;
+&lt;span class="n"&gt;chkconfig&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;list&lt;/span&gt;       &lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="n"&gt;get&lt;/span&gt; &lt;span class="n"&gt;a&lt;/span&gt; &lt;span class="n"&gt;list&lt;/span&gt; &lt;span class="n"&gt;of&lt;/span&gt; &lt;span class="n"&gt;all&lt;/span&gt; &lt;span class="n"&gt;services&lt;/span&gt; &lt;span class="n"&gt;chkconfig&lt;/span&gt; &lt;span class="n"&gt;handles&lt;/span&gt;
+&lt;span class="n"&gt;service&lt;/span&gt; &lt;span class="n"&gt;mysqld&lt;/span&gt; &lt;span class="n"&gt;status&lt;/span&gt;  &lt;span class="err"&gt;#查看&lt;/span&gt;&lt;span class="n"&gt;mysqld&lt;/span&gt;&lt;span class="err"&gt;状态&lt;/span&gt;
+&lt;span class="n"&gt;service&lt;/span&gt; &lt;span class="n"&gt;mysqld&lt;/span&gt; &lt;span class="n"&gt;start&lt;/span&gt;   &lt;span class="err"&gt;#启动&lt;/span&gt;&lt;span class="n"&gt;mysqld&lt;/span&gt;
+&lt;span class="n"&gt;ps&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;aux&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt; &lt;span class="n"&gt;grep&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;   &lt;span class="err"&gt;#查看&lt;/span&gt;&lt;span class="n"&gt;mysqld&lt;/span&gt;&lt;span class="err"&gt;服务是否启动&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;为mysql的root用户创建密码&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bin&lt;/span&gt;
+&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysqladmin&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt; &lt;span class="n"&gt;root&lt;/span&gt; &lt;span class="n"&gt;password&lt;/span&gt; &lt;span class="mi"&gt;123456&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;安全配置，删除Test数据库和匿名操作等。&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql_secure_installation&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;设置root用户可以远程访问，在登陆mysql后执行&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;use&lt;/span&gt; &lt;span class="n"&gt;mysql&lt;/span&gt;
+&lt;span class="n"&gt;grant&lt;/span&gt; &lt;span class="n"&gt;all&lt;/span&gt; &lt;span class="n"&gt;privileges&lt;/span&gt; &lt;span class="n"&gt;on&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="n"&gt;to&lt;/span&gt; &lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="s"&gt;@&amp;quot;%&amp;quot;&lt;/span&gt; &lt;span class="n"&gt;identified&lt;/span&gt; &lt;span class="n"&gt;by&lt;/span&gt; &lt;span class="s"&gt;&amp;quot;123456&amp;quot;&lt;/span&gt; &lt;span class="n"&gt;with&lt;/span&gt; &lt;span class="n"&gt;grant&lt;/span&gt; &lt;span class="n"&gt;option&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;环境变量配置&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;vi&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;profile&lt;/span&gt;
+&lt;span class="n"&gt;export&lt;/span&gt; &lt;span class="n"&gt;PATH&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;$PATH:/usr/local/mysql/bin&amp;quot;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;设置mysql自启动：把启动命令加入/etc/rc.local文件中&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysqld&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt;
+&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;init&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysqld&lt;/span&gt; &lt;span class="n"&gt;start&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;</summary><category term="MySQL"></category></entry><entry><title>Git学习笔记</title><link href="/posts/git_study.html" rel="alternate"></link><updated>2013-08-02T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-08-02:posts/git_study.html</id><summary type="html">&lt;p&gt;Git本地仓库存在三个区域：工作区（working directory），缓存区（Git staging area或Git index），远端（HEAD）则是中心仓库的最新提交。&lt;/p&gt;
+&lt;p&gt;Git staging area 和Git Index是同一个意思，可以理解为快照缓存区。缓存区是用来存放下一次要提交到仓库的信息的区域。&lt;/p&gt;
+&lt;p&gt;HEAD指向最新提交，HEAD^指向HEAD之前的最近一次提交。HEAD~2指向HEAD最近的两个提交。&lt;/p&gt;
+&lt;p&gt;git init       #进行初始化后git就会对该目录下的文件进行版本控制，接下来就可以利用'git remote add'命令来增加一个远程仓库&lt;/p&gt;
+&lt;p&gt;git remote add origin git@github.com:username/project.git     #增加名称为origin的远程服务器，以后提交代码的时候只需要使用 origin别名即可&lt;/p&gt;
+&lt;p&gt;git add        #将当前工作区的内容存放到缓存区。&lt;/p&gt;
+&lt;p&gt;git commit     #将缓存区的内容提交到中心仓库，之后缓存区就与远端最新提交的内容一致。&lt;/p&gt;
+&lt;p&gt;git diff       #显示缓存区与工作区之间的差别。&lt;/p&gt;
+&lt;p&gt;git diff HEAD  #最新提交与当前工作区的差别。&lt;/p&gt;
+&lt;p&gt;git diff --cached #缓存区与最新提交的区别。&lt;/p&gt;
+&lt;p&gt;git reset HEAD --file #取消存取区已缓存的内容。 "--"分隔符用来告诉Git这是你已经不再列选项了，剩下的是文件路径了。&lt;/p&gt;
+&lt;p&gt;git reset HEAD 命令和 git reset相同。执行git reset 用以取消之前git add的添加。有時候手殘不小心將還沒修改完的檔案使用 git add 加入了 stage ，這時候可以使用 git reset HEAD &lt;file&gt; 來將這支檔案取消 stage&lt;/p&gt;
+&lt;p&gt;git reset --hard &lt;commit $id&gt; #重设缓存区和工作区，自&lt;commit $id&gt;以来的工作区中的任何改变都被丢弃,可用于回滚commit。&lt;/p&gt;
+&lt;p&gt;git reset --soft &lt;commit $id&gt; #仅仅把HEAD指向&lt;commit $id&gt;，工作区和缓存区的内容保留不动。&lt;/p&gt;
+&lt;p&gt;git revert和git reset的功能很相似，但是有区别，具体如下：&lt;/p&gt;
+&lt;p&gt;git revert是用一个commit来记录并回滚早前的commit，经常是一些错误的提交。如果你想干脆扔掉工作区中的东西，可以使用git reset --hard，直接删除指定的commit。 &lt;/p&gt;</summary><category term="Git"></category></entry><entry><title>理解Java语言的几张图</title><link href="/posts/java_pictures.html" rel="alternate"></link><updated>2013-07-06T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-07-06:posts/java_pictures.html</id><summary type="html">&lt;h2&gt;Java 体系结构图&lt;/h2&gt;
+&lt;p&gt;&lt;img alt="Java Topic" src="images/Java_Topic.png" /&gt;&lt;/p&gt;
+&lt;h2&gt;Java &lt;a href="http://www.programcreek.com/2009/02/diagram-for-hierarchy-of-exception-classes/"&gt;异常类层次&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;红色的方块为 Checked Exception，必须被捕获或者是在方法中使用 throws 声明抛出。
+&lt;img alt="Throwable" src="images/Throwable.jpeg" /&gt;&lt;/p&gt;
+&lt;h2&gt;&lt;a href="http://www.programcreek.com/2009/02/the-interface-and-class-hierarchy-for-collections/"&gt;集合类层次&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;img alt="Collection" src="images/Collection.jpeg" /&gt;
+&lt;img alt="Map" src="/images/Map.jpg" /&gt;&lt;/p&gt;
+&lt;h2&gt;&lt;a href="http://www.programcreek.com/2013/04/jvm%E8%BF%90%E8%A1%8C%E6%97%B6%E6%95%B0%E6%8D%AE%E5%8C%BA/"&gt;JVM运行时的数据区&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;img alt="Memory" src="images/Memory.jpg" /&gt;&lt;/p&gt;</summary><category term="Java"></category></entry></feed>

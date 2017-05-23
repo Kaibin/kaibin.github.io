@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Kaibin的技术笔记</title><link href="/" rel="alternate"></link><link href="/feeds/git.atom.xml" rel="self"></link><id>/</id><updated>2013-08-02T00:00:00+08:00</updated><entry><title>Git学习笔记</title><link href="/posts/git_study.html" rel="alternate"></link><updated>2013-08-02T00:00:00+08:00</updated><author><name>Kaibin</name></author><id>tag:,2013-08-02:posts/git_study.html</id><summary type="html">&lt;p&gt;Git本地仓库存在三个区域：工作区（working directory），缓存区（Git staging area或Git index），远端（HEAD）则是中心仓库的最新提交。&lt;/p&gt;
+&lt;p&gt;Git staging area 和Git Index是同一个意思，可以理解为快照缓存区。缓存区是用来存放下一次要提交到仓库的信息的区域。&lt;/p&gt;
+&lt;p&gt;HEAD指向最新提交，HEAD^指向HEAD之前的最近一次提交。HEAD~2指向HEAD最近的两个提交。&lt;/p&gt;
+&lt;p&gt;git init       #进行初始化后git就会对该目录下的文件进行版本控制，接下来就可以利用'git remote add'命令来增加一个远程仓库&lt;/p&gt;
+&lt;p&gt;git remote add origin git@github.com:username/project.git     #增加名称为origin的远程服务器，以后提交代码的时候只需要使用 origin别名即可&lt;/p&gt;
+&lt;p&gt;git add        #将当前工作区的内容存放到缓存区。&lt;/p&gt;
+&lt;p&gt;git commit     #将缓存区的内容提交到中心仓库，之后缓存区就与远端最新提交的内容一致。&lt;/p&gt;
+&lt;p&gt;git diff       #显示缓存区与工作区之间的差别。&lt;/p&gt;
+&lt;p&gt;git diff HEAD  #最新提交与当前工作区的差别。&lt;/p&gt;
+&lt;p&gt;git diff --cached #缓存区与最新提交的区别。&lt;/p&gt;
+&lt;p&gt;git reset HEAD --file #取消存取区已缓存的内容。 "--"分隔符用来告诉Git这是你已经不再列选项了，剩下的是文件路径了。&lt;/p&gt;
+&lt;p&gt;git reset HEAD 命令和 git reset相同。执行git reset 用以取消之前git add的添加。有時候手殘不小心將還沒修改完的檔案使用 git add 加入了 stage ，這時候可以使用 git reset HEAD &lt;file&gt; 來將這支檔案取消 stage&lt;/p&gt;
+&lt;p&gt;git reset --hard &lt;commit $id&gt; #重设缓存区和工作区，自&lt;commit $id&gt;以来的工作区中的任何改变都被丢弃,可用于回滚commit。&lt;/p&gt;
+&lt;p&gt;git reset --soft &lt;commit $id&gt; #仅仅把HEAD指向&lt;commit $id&gt;，工作区和缓存区的内容保留不动。&lt;/p&gt;
+&lt;p&gt;git revert和git reset的功能很相似，但是有区别，具体如下：&lt;/p&gt;
+&lt;p&gt;git revert是用一个commit来记录并回滚早前的commit，经常是一些错误的提交。如果你想干脆扔掉工作区中的东西，可以使用git reset --hard，直接删除指定的commit。 &lt;/p&gt;</summary><category term="Git"></category></entry></feed>
